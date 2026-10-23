@@ -1,0 +1,841 @@
+{
+ "schema": "counterweight.catalogue/1",
+ "as_of": "2026-10-19",
+ "currency": "EUR",
+ "vat": "excluded",
+ "notes": [
+  "nvme_gb is usable capacity after RAID1 mirroring (how servers ship); nvme_raw_gb is the raw total, used for software-replicated storage (Ceph/Longhorn).",
+  "Prices change often (Hetzner changed prices four times in 2026). Refresh before quoting; see references/refreshing-prices.md.",
+  "Object storage is priced single-site for every provider so the comparison is like for like; cloud standard tiers (S3, Blob ZRS, GCS) span zones."
+ ],
+ "fx": {
+  "USD_EUR": 0.8909,
+  "GBP_EUR": 1.1876,
+  "as_of": "2026-10-19",
+  "source": "ECB euro reference rates, 19 October 2026 (1 EUR = 1.1225 USD = 0.84205 GBP)"
+ },
+ "providers": {
+  "hetzner": {
+   "name": "Hetzner",
+   "locations": [
+    "Falkenstein DE",
+    "Nuremberg DE",
+    "Helsinki FI"
+   ],
+   "billing": "Monthly or hourly up to the monthly cap; no minimum term; setup fee per server.",
+   "per_server_monthly_eur": 1.7,
+   "per_server_note": "Primary IPv4 address, billed on top of the server price.",
+   "traffic": {
+    "port_gbps": 1,
+    "included_tb_per_server": null,
+    "overage_eur_per_tb": 1.0,
+    "uplink_10g_monthly_eur": 43.0,
+    "uplink_10g_included_tb": 20,
+    "notes": "Unlimited traffic on the default 1 Gbit/s port. A 10G uplink costs \u20ac43/mo and includes 20 TB, then \u20ac1/TB."
+   },
+   "private_network": {
+    "monthly_eur": 0,
+    "notes": "vSwitch; internal traffic free, including between locations."
+   },
+   "object_storage": {
+    "base_monthly_eur": 6.49,
+    "included_tb": 1,
+    "eur_per_tb_month": 6.47,
+    "egress_included_tb": 1,
+    "egress_eur_per_tb": 1.0,
+    "verified": false,
+    "source": "https://docs.hetzner.com/storage/object-storage/overview/",
+    "notes": "S3-compatible, FSN1/NBG1/HEL1. Prices from a third-party read of hetzner.com on 8 Oct 2026; Hetzner pages render prices client-side. Single location."
+   },
+   "backup_storage": {
+    "eur_per_tb_month": 6.47,
+    "product": "Object Storage bucket in a second location",
+    "verified": false
+   },
+   "load_balancer": {
+    "monthly_eur": 7.49,
+    "product": "Cloud Load Balancer LB11",
+    "verified": false
+   },
+   "servers": [
+    {
+     "model": "AX42-1",
+     "cpu": "AMD Ryzen 7 PRO 8700GE",
+     "cores": 8,
+     "threads": 16,
+     "ram_gb": 64,
+     "nvme_gb": 512,
+     "hdd_tb": 0,
+     "monthly_eur": 97.3,
+     "setup_eur": 49.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://website-price-api.hetzner.com/api/v1/products/ROBOT_1719",
+     "verified": true,
+     "nvme_raw_gb": 1024
+    },
+    {
+     "model": "EX63-1",
+     "cpu": "Intel Core Ultra 7 265 (8P+12E, no SMT)",
+     "cores": 20,
+     "threads": 20,
+     "ram_gb": 64,
+     "nvme_gb": 1000,
+     "hdd_tb": 0,
+     "monthly_eur": 147.3,
+     "setup_eur": 74.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "nvme_raw_gb": 2000
+    },
+    {
+     "model": "AX102-1",
+     "cpu": "AMD Ryzen 9 7950X3D",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 128,
+     "nvme_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 257.3,
+     "setup_eur": 129.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://website-price-api.hetzner.com/api/v1/products/ROBOT_1721",
+     "verified": true,
+     "nvme_raw_gb": 3840
+    },
+    {
+     "model": "EX63-2",
+     "cpu": "Intel Core Ultra 7 265 (8P+12E, no SMT)",
+     "cores": 20,
+     "threads": 20,
+     "ram_gb": 192,
+     "nvme_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 537.3,
+     "setup_eur": 269.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "nvme_raw_gb": 3840
+    },
+    {
+     "model": "AX102-2",
+     "cpu": "AMD Ryzen 9 7950X3D, ECC",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 192,
+     "nvme_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 547.3,
+     "setup_eur": 274.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "nvme_raw_gb": 3840
+    },
+    {
+     "model": "EX131-1",
+     "cpu": "Intel Xeon Gold 6731P (Granite Rapids)",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 128,
+     "nvme_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 557.3,
+     "setup_eur": 279.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "nvme_raw_gb": 3840
+    },
+    {
+     "model": "AX162-1",
+     "cpu": "AMD EPYC 9454P (Genoa)",
+     "cores": 48,
+     "threads": 96,
+     "ram_gb": 128,
+     "nvme_gb": 3840,
+     "hdd_tb": 0,
+     "monthly_eur": 612.3,
+     "setup_eur": 304.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "nvme_raw_gb": 7680
+    },
+    {
+     "model": "EX63-3",
+     "cpu": "Intel Core Ultra 7 265 (8P+12E, no SMT)",
+     "cores": 20,
+     "threads": 20,
+     "ram_gb": 192,
+     "nvme_gb": 7680,
+     "hdd_tb": 0,
+     "monthly_eur": 757.3,
+     "setup_eur": 379.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "nvme_raw_gb": 15360
+    },
+    {
+     "model": "AX162-2",
+     "cpu": "AMD EPYC 9454P (Genoa)",
+     "cores": 48,
+     "threads": 96,
+     "ram_gb": 256,
+     "nvme_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 842.3,
+     "setup_eur": 419.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "nvme_raw_gb": 3840
+    },
+    {
+     "model": "EX131-2",
+     "cpu": "Intel Xeon Gold 6731P (Granite Rapids)",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 256,
+     "nvme_gb": 7680,
+     "hdd_tb": 0,
+     "monthly_eur": 1077.3,
+     "setup_eur": 539.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "nvme_raw_gb": 15360
+    },
+    {
+     "model": "EX131-3",
+     "cpu": "Intel Xeon Gold 6731P (Granite Rapids)",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 256,
+     "nvme_gb": 15360,
+     "hdd_tb": 0,
+     "monthly_eur": 1397.3,
+     "setup_eur": 699.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "nvme_raw_gb": 30720
+    },
+    {
+     "model": "AX162-3",
+     "cpu": "AMD EPYC 9454P (Genoa)",
+     "cores": 48,
+     "threads": 96,
+     "ram_gb": 512,
+     "nvme_gb": 7680,
+     "hdd_tb": 0,
+     "monthly_eur": 1597.3,
+     "setup_eur": 799.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "nvme_raw_gb": 15360
+    },
+    {
+     "model": "SX65-2",
+     "cpu": "AMD Ryzen 7 3700X",
+     "cores": 8,
+     "threads": 16,
+     "ram_gb": 64,
+     "nvme_gb": 0,
+     "hdd_tb": 64,
+     "monthly_eur": 82.3,
+     "setup_eur": 39.0,
+     "role": [
+      "storage"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "note": "4 x 16 TB HDD",
+     "nvme_raw_gb": 0
+    },
+    {
+     "model": "SX135-2",
+     "cpu": "AMD Ryzen 9 3900",
+     "cores": 12,
+     "threads": 24,
+     "ram_gb": 128,
+     "nvme_gb": 1920,
+     "hdd_tb": 128,
+     "monthly_eur": 287.3,
+     "setup_eur": 144.0,
+     "role": [
+      "storage"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "note": "8 x 16 TB HDD + NVMe",
+     "nvme_raw_gb": 3840
+    },
+    {
+     "model": "SX295-1",
+     "cpu": "AMD EPYC 7502P",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 256,
+     "nvme_gb": 7680,
+     "hdd_tb": 308,
+     "monthly_eur": 877.3,
+     "setup_eur": 439.0,
+     "role": [
+      "storage"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "note": "14 x 22 TB HDD + 2 x 7.68 TB NVMe",
+     "nvme_raw_gb": 15360
+    },
+    {
+     "model": "GEX45-1",
+     "cpu": "Intel Core i5-13500",
+     "cores": 14,
+     "threads": 20,
+     "ram_gb": 64,
+     "nvme_gb": 512,
+     "hdd_tb": 0,
+     "monthly_eur": 212.3,
+     "setup_eur": 209.0,
+     "role": [
+      "gpu"
+     ],
+     "availability": "standard",
+     "source": "https://www.hetzner.com/pressroom/hetzner-expands-its-gpu-portfolio-with-the-gex45/",
+     "verified": true,
+     "gpu": {
+      "model": "RTX-PRO-4000",
+      "name": "NVIDIA RTX PRO 4000 Blackwell SFF",
+      "mem_gb": 24,
+      "count": 1
+     },
+     "note": "Helsinki only",
+     "nvme_raw_gb": 1024
+    },
+    {
+     "model": "GEX44-1",
+     "cpu": "Intel Core i5-13500",
+     "cores": 14,
+     "threads": 20,
+     "ram_gb": 64,
+     "nvme_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 232.3,
+     "setup_eur": 114.0,
+     "role": [
+      "gpu"
+     ],
+     "availability": "standard",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "gpu": {
+      "model": "RTX-4000-ADA",
+      "name": "NVIDIA RTX 4000 SFF Ada",
+      "mem_gb": 20,
+      "count": 1
+     },
+     "note": "Falkenstein",
+     "nvme_raw_gb": 3840
+    },
+    {
+     "model": "GEX63-1",
+     "cpu": "Intel Core Ultra 7 265",
+     "cores": 20,
+     "threads": 20,
+     "ram_gb": 128,
+     "nvme_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 997.3,
+     "setup_eur": 999.0,
+     "role": [
+      "gpu"
+     ],
+     "availability": "standard",
+     "source": "https://www.hetzner.com/pressroom/hetzner-expands-gpu-portfolio-with-new-gex63-featuring-nvidia-rtx-pro-6000-blackwell-max-q/",
+     "verified": true,
+     "gpu": {
+      "model": "RTX-PRO-6000",
+      "name": "NVIDIA RTX PRO 6000 Blackwell Max-Q",
+      "mem_gb": 96,
+      "count": 1
+     },
+     "note": "Helsinki only",
+     "nvme_raw_gb": 3840
+    },
+    {
+     "model": "GEX131-1",
+     "cpu": "Intel Xeon Gold 5412U",
+     "cores": 24,
+     "threads": 48,
+     "ram_gb": 256,
+     "nvme_gb": 960,
+     "hdd_tb": 0,
+     "monthly_eur": 1497.3,
+     "setup_eur": 1499.0,
+     "role": [
+      "gpu"
+     ],
+     "availability": "standard",
+     "source": "https://website-price-api.hetzner.com/api/v1/products/ROBOT_1747",
+     "verified": false,
+     "gpu": {
+      "model": "RTX-PRO-6000",
+      "name": "NVIDIA RTX PRO 6000 Blackwell Max-Q",
+      "mem_gb": 96,
+      "count": 1
+     },
+     "note": "Price read from Hetzner's price API; model mapping inferred. Confirm in the configurator.",
+     "nvme_raw_gb": 1920
+    },
+    {
+     "model": "AX162-1-LTD",
+     "cpu": "AMD EPYC 9454P (Genoa)",
+     "cores": 48,
+     "threads": 96,
+     "ram_gb": 128,
+     "nvme_gb": 3840,
+     "hdd_tb": 0,
+     "monthly_eur": 317.3,
+     "setup_eur": 39.0,
+     "role": [
+      "general"
+     ],
+     "availability": "limited",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "note": "Limited stock; not used unless allowed",
+     "nvme_raw_gb": 7680
+    },
+    {
+     "model": "AX102-1-LTD",
+     "cpu": "AMD Ryzen 9 7950X3D",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 128,
+     "nvme_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 157.3,
+     "setup_eur": 39.0,
+     "role": [
+      "general"
+     ],
+     "availability": "limited",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "note": "Limited stock; not used unless allowed",
+     "nvme_raw_gb": 3840
+    },
+    {
+     "model": "EX131-1-LTD",
+     "cpu": "Intel Xeon Gold 6731P",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 128,
+     "nvme_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 267.3,
+     "setup_eur": 39.0,
+     "role": [
+      "general"
+     ],
+     "availability": "limited",
+     "source": "https://docs.hetzner.com/general/infrastructure-and-availability/price-adjustment/",
+     "verified": true,
+     "note": "Limited stock; not used unless allowed",
+     "nvme_raw_gb": 3840
+    }
+   ],
+   "default_enabled": true,
+   "pricing_caveat": "Fixed configurations since June 2026; some GPU and object-storage prices are read from Hetzner's price API or third-party trackers and are marked unverified."
+  },
+  "ovhcloud": {
+   "name": "OVHcloud",
+   "default_enabled": true,
+   "locations": [
+    "Roubaix FR",
+    "Gravelines FR",
+    "Strasbourg FR",
+    "Paris FR (3-AZ)",
+    "Frankfurt DE",
+    "London UK",
+    "Warsaw PL"
+   ],
+   "billing": "Monthly; setup fee usually equal to one month's rent and often waived by promotion; 12/24-month commitments discount some ranges.",
+   "per_server_monthly_eur": 0.0,
+   "per_server_note": "One IPv4 address included.",
+   "traffic": {
+    "port_gbps": 3,
+    "included_tb_per_server": null,
+    "overage_eur_per_tb": 0.0,
+    "notes": "Public bandwidth unmetered: Rise 1 Gbps, Advance 3 Gbps, Scale 5 Gbps, High Grade 10 Gbps. Private vRack unmetered (Advance 25 Gbps, Scale 50 Gbps)."
+   },
+   "private_network": {
+    "monthly_eur": 0,
+    "notes": "vRack, included and unmetered."
+   },
+   "object_storage": {
+    "base_monthly_eur": 0.0,
+    "included_tb": 0,
+    "eur_per_tb_month": 7.27,
+    "egress_eur_per_tb": 0.0,
+    "verified": true,
+    "source": "https://www.ovhcloud.com/en-ie/public-cloud/prices/",
+    "notes": "S3-compatible Standard, one zone: the same single-site basis as the other providers here. 3-AZ Standard is about \u20ac14.33/TiB. Egress and API calls free."
+   },
+   "backup_storage": {
+    "eur_per_tb_month": 7.27,
+    "product": "Object Storage, one-zone Standard",
+    "verified": true
+   },
+   "load_balancer": {
+    "monthly_eur": 0.0,
+    "product": "Run HAProxy/keepalived on the cluster (vRack); not priced separately"
+   },
+   "servers": [
+    {
+     "model": "RISE-L",
+     "cpu": "AMD Ryzen 9 9950X",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 128,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 149.99,
+     "setup_eur": 149.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://www.ovhcloud.com/en-ie/bare-metal/prices/",
+     "verified": true,
+     "note": "1 Gbps public and private"
+    },
+    {
+     "model": "Advance-1 2026",
+     "cpu": "AMD EPYC 4245P",
+     "cores": 6,
+     "threads": 12,
+     "ram_gb": 32,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 159.99,
+     "setup_eur": 159.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://www.ovhcloud.com/en-ie/bare-metal/advance/",
+     "verified": true
+    },
+    {
+     "model": "Advance-4 2026",
+     "cpu": "AMD EPYC 4585PX",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 64,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 299.99,
+     "setup_eur": 299.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://www.ovhcloud.com/en-ie/bare-metal/prices/",
+     "verified": true
+    },
+    {
+     "model": "Advance-5 2026",
+     "cpu": "Intel Xeon 6527P",
+     "cores": 24,
+     "threads": 48,
+     "ram_gb": 128,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 572.99,
+     "setup_eur": 572.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://eu.api.ovh.com/v1/order/catalog/formatted/baremetalServers?ovhSubsidiary=IE",
+     "verified": true,
+     "note": "Setup fee waived by promotion until 27 Oct 2026"
+    },
+    {
+     "model": "SCALE-a1 2026",
+     "cpu": "AMD EPYC 9135 (Turin)",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 128,
+     "nvme_gb": 1920,
+     "nvme_raw_gb": 3840,
+     "hdd_tb": 0,
+     "monthly_eur": 599.99,
+     "setup_eur": 599.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://eu.api.ovh.com/v1/order/catalog/formatted/baremetalServers?ovhSubsidiary=IE",
+     "verified": true,
+     "note": "RAM and NVMe upgradable in the configurator (prices not catalogued)"
+    },
+    {
+     "model": "SCALE-a3 2026",
+     "cpu": "AMD EPYC 9355 (Turin)",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 128,
+     "nvme_gb": 1920,
+     "nvme_raw_gb": 3840,
+     "hdd_tb": 0,
+     "monthly_eur": 679.99,
+     "setup_eur": 679.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://eu.api.ovh.com/v1/order/catalog/formatted/baremetalServers?ovhSubsidiary=IE",
+     "verified": true,
+     "note": "RAM and NVMe upgradable in the configurator (prices not catalogued)"
+    },
+    {
+     "model": "SCALE-a6 2026",
+     "cpu": "AMD EPYC 9655 (Turin)",
+     "cores": 96,
+     "threads": 192,
+     "ram_gb": 128,
+     "nvme_gb": 1920,
+     "nvme_raw_gb": 3840,
+     "hdd_tb": 0,
+     "monthly_eur": 979.99,
+     "setup_eur": 979.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://eu.api.ovh.com/v1/order/catalog/formatted/baremetalServers?ovhSubsidiary=IE",
+     "verified": true,
+     "note": "RAM options to 3 TB in the configurator (prices not catalogued)"
+    }
+   ],
+   "pricing_caveat": "Priced at base configurations (32-128 GB RAM, 2 NVMe drives). Scale servers take up to 3 TB RAM and 6 x 15.36 TB NVMe, but OVHcloud publishes upgrade prices only in its configurator, so memory- or storage-heavy estates need more servers here than a configured quote would. Treat these OVHcloud figures as an upper bound."
+  },
+  "leaseweb": {
+   "name": "Leaseweb",
+   "default_enabled": false,
+   "locations": [
+    "Amsterdam NL",
+    "Frankfurt DE",
+    "London UK"
+   ],
+   "billing": "Monthly; terms and setup fees vary by configuration (unverified).",
+   "per_server_monthly_eur": 0.0,
+   "traffic": {
+    "port_gbps": 1,
+    "included_tb_per_server": 30,
+    "overage_eur_per_tb": 2.0,
+    "notes": "30 TB a month included per standard server; overage about \u20ac2/TB (unit unverified). Unmetered 10 Gbps SKUs cost roughly \u20ac750-900/mo more."
+   },
+   "private_network": {
+    "monthly_eur": 0,
+    "notes": "Private networking available; pricing unverified."
+   },
+   "object_storage": {
+    "base_monthly_eur": 0.0,
+    "included_tb": 0,
+    "eur_per_tb_month": 7.43,
+    "egress_eur_per_tb": 0.0,
+    "verified": false,
+    "source": "https://shop-api.leaseweb.com/occ/v2/leaseweb-spa/products/search?query=:relevance:category:object-storage",
+    "notes": "Reserved-capacity price; unit and egress terms unverified."
+   },
+   "backup_storage": {
+    "eur_per_tb_month": 7.43,
+    "product": "Object Storage",
+    "verified": false
+   },
+   "load_balancer": {
+    "monthly_eur": 0.0
+   },
+   "servers": [
+    {
+     "model": "R133-C10 EPYC 4584PX",
+     "cpu": "AMD EPYC 4584PX",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 32,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 208.54,
+     "setup_eur": 0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://shop-api.leaseweb.com/occ/v2/leaseweb-spa/products/DEDSER02_NEW_ORDER_STANDARD_R133-C10-4584PX?fields=FULL",
+     "verified": false,
+     "note": "Frankfurt; setup fee unverified"
+    },
+    {
+     "model": "DL325 G11 EPYC 9124",
+     "cpu": "AMD EPYC 9124",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 64,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 235.97,
+     "setup_eur": 0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://shop-api.leaseweb.com/occ/v2/leaseweb-spa/products/DEDSER02_NEW_ORDER_VOLUME_DL325G11-8SFF2NVME-9124?fields=FULL",
+     "verified": false,
+     "note": "Frankfurt; 2 x 960 GB SATA SSD"
+    },
+    {
+     "model": "DL385 G11 2x EPYC 9224",
+     "cpu": "2 x AMD EPYC 9224",
+     "cores": 48,
+     "threads": 96,
+     "ram_gb": 128,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 469.9,
+     "setup_eur": 0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://shop-api.leaseweb.com/occ/v2/leaseweb-spa/products/DEDSER02_NEW_ORDER_PREMIUM_DL385G11-9224?fields=FULL",
+     "verified": false,
+     "note": "Frankfurt; 2 x 960 GB SATA SSD"
+    },
+    {
+     "model": "DL385 G11 2x EPYC 9334",
+     "cpu": "2 x AMD EPYC 9334",
+     "cores": 64,
+     "threads": 128,
+     "ram_gb": 128,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 658.39,
+     "setup_eur": 0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://shop-api.leaseweb.com/occ/v2/leaseweb-spa/products/DEDSER02_NEW_ORDER_PREMIUM_DL385G11-9334?fields=FULL",
+     "verified": false,
+     "note": "Amsterdam; 2 x 960 GB SATA SSD"
+    },
+    {
+     "model": "DL385 G11 2x EPYC 9224 + L40S",
+     "cpu": "2 x AMD EPYC 9224",
+     "cores": 48,
+     "threads": 96,
+     "ram_gb": 128,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 797.53,
+     "setup_eur": 0,
+     "role": [
+      "gpu"
+     ],
+     "availability": "standard",
+     "source": "https://shop-api.leaseweb.com/occ/v2/leaseweb-spa/products/DEDSER02_NEW_ORDER_PREMIUM_DL385G11-9224-L40S?fields=FULL",
+     "verified": false,
+     "gpu": {
+      "model": "L40S",
+      "name": "NVIDIA L40S",
+      "mem_gb": 48,
+      "count": 1
+     },
+     "note": "Frankfurt"
+    },
+    {
+     "model": "DL385 G11 2x EPYC 9224 + H100",
+     "cpu": "2 x AMD EPYC 9224",
+     "cores": 48,
+     "threads": 96,
+     "ram_gb": 128,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 1638.57,
+     "setup_eur": 0,
+     "role": [
+      "gpu"
+     ],
+     "availability": "standard",
+     "source": "https://shop-api.leaseweb.com/occ/v2/leaseweb-spa/products/DEDSER02_NEW_ORDER_PREMIUM_DL385G11-9224-H100?fields=FULL",
+     "verified": false,
+     "gpu": {
+      "model": "H100",
+      "name": "NVIDIA H100",
+      "mem_gb": 80,
+      "count": 1
+     },
+     "note": "Frankfurt; GPU form factor and count unverified"
+    }
+   ],
+   "pricing_caveat": "Opt-in (--providers ...,leaseweb): VAT basis, setup fees and port speeds are not stated in Leaseweb's shop data; most stock is SATA SSD, not NVMe."
+  }
+ }
+}

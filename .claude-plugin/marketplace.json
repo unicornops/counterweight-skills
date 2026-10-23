@@ -1,0 +1,17 @@
+{
+  "name": "counterweight-skills",
+  "owner": {
+    "name": "Counterweight (Unicorn Operations Limited)",
+    "email": "hello@counterweight.ie"
+  },
+  "metadata": {
+    "description": "Agent Skills from Counterweight for pricing a cloud exit."
+  },
+  "plugins": [
+    {
+      "name": "counterweight",
+      "source": "./plugins/counterweight",
+      "description": "Counterweight's skills, starting with counterweight-bare-metal-estimate: turn an AWS, Azure or Google Cloud bill into an indicative bare-metal plan and a branded report."
+    }
+  ]
+}

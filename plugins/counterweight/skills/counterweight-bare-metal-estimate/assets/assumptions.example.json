@@ -1,0 +1,16 @@
+{
+  "_comment": "Copy, edit and pass with --assumptions. Any key from DEFAULTS in scripts/estimate.py can be set here. Remove keys you don't need.",
+  "cpu_util": 0.5,
+  "ram_util": 0.85,
+  "ops_fte": 0.4,
+  "ops_fte_cost_eur": 110000,
+  "contingency": 0.1,
+  "parallel_run_months": 2,
+  "providers": ["hetzner", "ovhcloud"],
+  "dispositions": {
+    "cdn": "retain",
+    "AmazonDynamoDB": "retain",
+    "analytics": "retain",
+    "messaging": "migrate"
+  }
+}

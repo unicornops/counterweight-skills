@@ -1,0 +1,38 @@
+name: Release
+
+# Push a tag vX.Y.Z (matching plugins/counterweight/.claude-plugin/plugin.json) to publish a GitHub release with one
+# zip per skill, ready to upload to the Claude apps.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Test
+        run: python3 -B -m unittest discover -s tests -v
+
+      - name: Check the tag matches the plugin version
+        run: |
+          version="$(python3 -c 'import json; print(json.load(open("plugins/counterweight/.claude-plugin/plugin.json"))["version"])')"
+          if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match plugin.json version $version"
+            exit 1
+          fi
+
+      - name: Package the skills
+        run: python3 -B scripts/package.py
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.zip --title "$GITHUB_REF_NAME" --generate-notes --verify-tag

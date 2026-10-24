@@ -59,7 +59,11 @@ Checked and left out on 23–24 October 2026: **Equinix Metal** (retired); **ser
 
 ## Provider entry
 
-`name`, `locations`, `default_enabled`, `eu_uk_locations`, `prices_checked`, `per_server_monthly_eur`, `fixed_monthly_eur` (optional, per estate), `traffic` (`port_gbps`, `included_tb_per_server` and/or `included_tb_pool` (shared by the account), both null for unmetered, `overage_eur_per_tb`, `uplink_10g_monthly_eur`), `object_storage` (`base_monthly_eur`, `included_tb`, `eur_per_tb_month`; null when the provider sells none in Europe, which uses `object_storage_fallback`), `backup_storage` (`eur_per_tb_month`, or null likewise), `load_balancer` (`monthly_eur`), `pricing_caveat` (one sentence shown in the report), `servers`.
+`name`, `locations`, `default_enabled`, `eu_uk_locations`, `prices_checked`, `per_server_monthly_eur`, `fixed_monthly_eur` (optional, per estate), `traffic` (`port_gbps`, `included_tb_per_server` and/or `included_tb_pool` (shared by the account), both null for unmetered, `overage_eur_per_tb`, `uplink_10g_monthly_eur`), `object_storage` (`base_monthly_eur`, `included_tb`, `eur_per_tb_month`; null when the provider sells none in Europe, which uses `object_storage_fallback`), `backup_storage` (`eur_per_tb_month`, or null likewise), `load_balancer` (`monthly_eur`), `pricing_caveat` (one sentence shown in the report), `certifications_checked`, `certifications` and `certifications_note` (`references/compliance.md`), `servers`.
+
+## Certifications
+
+Refresh them with the prices, following `references/compliance.md`: only certifications whose scope covers the provider's bare-metal service, from its own certificate or compliance page, with `evidence` and `source`. When adding a provider, research its certifications before setting `certifications_checked`.
 
 ## After refreshing
 

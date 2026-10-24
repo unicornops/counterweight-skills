@@ -5,7 +5,7 @@ Usage:
   python3 estimate.py estate.json -o plan.json [--catalogue ../assets/catalogue.json]
         [--fx-usd-eur 0.89] [--providers default,teraswitch | all]
         [--cpu-util 0.6] [--ram-util 0.9] [--ops-fte 0.5] [--ops-fte-cost 110000]
-        [--assumptions assumptions.json]
+        [--require-cert "iso27001|soc2"] [--assumptions assumptions.json]
 
 What it does, in order:
   1. Converts each estate item to monthly cost (EUR) and average concurrent demand
@@ -20,7 +20,9 @@ What it does, in order:
      effort line and contingency, for two scenarios:
        like_for_like : one bare-metal thread per cloud vCPU, GB for GB of RAM
        right_sized   : applies utilisation and per-thread generation factors
-  5. Writes plan.json for report.py. Prints a one-screen summary to stderr.
+  5. Recommends the cheapest provider that meets the client's certification requirement (if any), has EU or UK
+     locations and can hold the largest workload.
+  6. Writes plan.json for report.py. Prints a one-screen summary to stderr.
 
 Pure standard library. All numbers are indicative planning estimates.
 """
@@ -95,7 +97,13 @@ DEFAULTS = {
     "parallel_run_months": 2,    # months of running both estates during migration
     "providers": None,           # list of catalogue keys; default: those with default_enabled. "all" or "default" expand
     "allow_limited": False,      # use limited-stock / promo server configs
+    "required_certifications": [],  # e.g. ["iso27001|soc2"]: every entry must be met; "|" separates alternatives
 }
+
+# Certifications the catalogue records per provider (catalogue "certifications"); only ones whose scope covers the
+# provider's dedicated or bare-metal servers are recorded. "soc2" means a SOC 2 Type II report.
+CERTIFICATIONS = {"iso27001": "ISO 27001", "soc2": "SOC 2 Type II", "soc1": "SOC 1 Type II",
+                  "pci-dss": "PCI DSS", "iso27017": "ISO 27017", "iso27018": "ISO 27018", "iso27701": "ISO 27701"}
 
 # Approximate public list prices used ONLY when a line has cost but no usage quantities.
 # They convert spend into implied capacity; results are flagged "cost-implied".
@@ -324,6 +332,54 @@ def pack_gpu(servers, gpu_demand, A):
 # Main estimate
 # ---------------------------------------------------------------------------
 
+def parse_requirements(entries):
+    """["iso27001|soc2", "pci-dss"] -> [["iso27001", "soc2"], ["pci-dss"]]; commas split entries too."""
+    groups = []
+    for entry in entries or []:
+        for part in str(entry).split(","):
+            alts = [a.strip().lower() for a in part.split("|") if a.strip()]
+            if alts:
+                unknown = [a for a in alts if a not in CERTIFICATIONS]
+                if unknown:
+                    raise ValueError(f"unknown certification {', '.join(unknown)}; use {', '.join(CERTIFICATIONS)}")
+                groups.append(alts)
+    return groups
+
+
+def requirement_text(groups):
+    """[["iso27001", "soc2"], ["pci-dss"]] -> "ISO 27001 or SOC 2 Type II, and PCI DSS"."""
+    return ", and ".join(" or ".join(CERTIFICATIONS[a] for a in g) for g in groups)
+
+
+def current_certifications(P, today=None):
+    """The provider's catalogued certifications whose valid_until has not passed."""
+    today = today or dt.date.today().isoformat()
+    return {k: c for k, c in (P.get("certifications") or {}).items() if (c.get("valid_until") or "9999") >= today}
+
+
+def compliance_of(P, groups):
+    """Whether provider P meets every requirement group, and where.
+
+    A group is met by any current certification in it that the catalogue records for the provider's bare-metal
+    servers; the provider meets the requirement at the locations every group covers. Returns (meets or None when
+    nothing is required, locations in catalogue order, certifications held).
+    """
+    certs = current_certifications(P)
+    held = [k for k in certs if k in CERTIFICATIONS]
+    if not groups:
+        return None, [], held
+    where = None
+    for g in groups:
+        covered = set()
+        for a in g:
+            if a in certs:
+                locs = certs[a].get("locations") or "all"
+                covered |= set(P.get("locations") or []) if locs == "all" else set(locs)
+        where = covered if where is None else where & covered
+    locs = [x for x in (P.get("locations") or []) if x in where]
+    return bool(locs), locs, held
+
+
 def select_providers(catalogue, wanted=None):
     """Catalogue keys to price: the default-enabled ones unless a list is given.
 
@@ -507,7 +563,14 @@ def estimate(estate, catalogue, A):
         "backup_target_tb": round(backup_tb, 2),
     }
 
+    groups = parse_requirements(A.get("required_certifications"))
     providers = select_providers(catalogue, A["providers"])
+    added = []
+    if groups and not A["providers"]:
+        # a client who needs certified providers would not stop at the default set: price the opt-in ones that qualify
+        added = [k for k, v in catalogue["providers"].items()
+                 if k not in providers and compliance_of(v, groups)[0]]
+        providers += added
     results = {}
     for pk in providers:
         P = catalogue["providers"].get(pk)
@@ -527,6 +590,19 @@ def estimate(estate, catalogue, A):
                "default_enabled": P.get("default_enabled", True), "eu_uk_locations": P.get("eu_uk_locations"),
                "unverified_prices": any(not x.get("verified", True) for x in P["servers"])}
         res["pricing_caveat"] = P.get("pricing_caveat")
+        meets, cert_locs, held = compliance_of(P, groups)
+        for k in set(P.get("certifications") or {}) - set(current_certifications(P)):
+            flags.append({"level": "warn", "provider": pk,
+                          "text": f"{P['name']}'s {CERTIFICATIONS.get(k, k)} certificate in the catalogue expired on "
+                                  f"{P['certifications'][k]['valid_until']}, so it is not counted; check for a renewal."})
+        res["certifications"] = {k: {f: P["certifications"][k].get(f) for f in
+                                     ("standard", "issuer", "reference", "valid_until", "locations", "evidence", "scope",
+                                      "access", "source")
+                                     if P["certifications"][k].get(f) is not None} for k in held}
+        res["certifications_checked"] = P.get("certifications_checked")
+        res["certifications_note"] = P.get("certifications_note")
+        res["meets_requirements"] = meets
+        res["certified_locations"] = cert_locs
         A["_per_server_overhead"] = P.get("per_server_monthly_eur", 0.0) + \
             (0.02 * A["ops_fte_cost_eur"] / 12 if A["ops_fte"] is None else 0.0)
         for scen in ("like_for_like", "right_sized"):
@@ -677,15 +753,35 @@ def estimate(estate, catalogue, A):
             }
         results[pk] = res
 
-    # recommended provider: cheapest right-sized total, among providers with EU or UK locations when there are any
-    # and among providers whose catalogue can hold the largest workload
-    rec = None
-    fit = {pk: r for pk, r in results.items() if all(sc["fits"] for sc in r["scenarios"].values())} or results
-    eu = {pk: r for pk, r in fit.items() if catalogue["providers"][pk].get("eu_uk_locations") is not False}
-    for pk, r in (eu or fit).items():
-        t = r["scenarios"]["right_sized"]["monthly_eur"]["total"]
-        if rec is None or t < results[rec]["scenarios"]["right_sized"]["monthly_eur"]["total"]:
-            rec = pk
+    # recommended provider: the cheapest right-sized total after narrowing, in turn, to providers that meet the
+    # certification requirement, can hold the largest workload, have EU or UK locations and are priced by default
+    # (opt-in ones may have been added for the requirement). A step that would leave nobody is skipped.
+    def narrow(pool, keep):
+        return {pk: r for pk, r in pool.items() if keep(pk, r)} or pool
+    compliant = {pk: r for pk, r in results.items() if r["meets_requirements"]} if groups else results
+    pool = narrow(compliant or results, lambda pk, r: all(sc["fits"] for sc in r["scenarios"].values()))
+    pool = narrow(pool, lambda pk, r: catalogue["providers"][pk].get("eu_uk_locations") is not False)
+    pool = narrow(pool, lambda pk, r: r["default_enabled"])
+    rec = min(pool, key=lambda pk: pool[pk]["scenarios"]["right_sized"]["monthly_eur"]["total"]) if pool else None
+    compliance = None
+    if groups:
+        rec_fits = rec is not None and all(sc["fits"] for sc in results[rec]["scenarios"].values())
+        compliance = {"required": groups, "required_text": requirement_text(groups),
+                      "met_by": sorted(compliant), "recommended_meets": bool(rec in compliant),
+                      "opt_in_added": added}
+        if not compliant:
+            flags.append({"level": "error", "text": f"None of the priced providers holds {requirement_text(groups)} for "
+                          "its bare-metal servers, so the provider shown does not meet the requirement. Ask Counterweight "
+                          "about providers outside the catalogue, or about colocation in a certified facility."})
+        elif not rec_fits:
+            flags.append({"level": "warn", "text": f"No provider that holds {requirement_text(groups)} has a catalogued "
+                          "server that holds the largest workload; the figures shown need that workload split or a "
+                          "configured quote."})
+        if rec in added:
+            flags.append({"level": "warn", "provider": rec,
+                          "text": f"{results[rec]['name']} is not priced by default. {results[rec]['pricing_caveat']} "
+                                  f"It is shown because no default provider meets {requirement_text(groups)} "
+                                  "for this estate."})
 
     migrate_cost = by_disp.get("migrate", 0.0)
     usage_share = basis_cost["usage"] / migrate_cost if migrate_cost > 0 else 0
@@ -764,6 +860,7 @@ def estimate(estate, catalogue, A):
                        "share_of_sized_spend_cost_implied": round(basis_cost["cost_implied"] / migrate_cost, 3) if migrate_cost else 0},
         "providers": results,
         "recommended_provider": rec,
+        "compliance": compliance,
         "exit_transfer_list_price_eur": round(exit_list_eur, 0),
         "invoice_total_eur_period": round(baseline * months, 2),
         "exit_data_tb": round(total_data_gb / 1024, 2),
@@ -793,6 +890,9 @@ def main(argv=None):
     ap.add_argument("--ops-fte", type=float, help="incremental operations FTE (overrides the computed value)")
     ap.add_argument("--ops-fte-cost", type=float, help="fully loaded annual EUR per FTE")
     ap.add_argument("--contingency", type=float)
+    ap.add_argument("--require-cert", action="append", metavar="CERTS",
+                    help="certifications the provider must hold for its bare-metal servers: " + ", ".join(CERTIFICATIONS)
+                    + ". '|' accepts either ('iso27001|soc2'); repeat the option or use commas to need all")
     ap.add_argument("--allow-partial", action="store_true", help="estimate even when the bill covers under a week")
     a = ap.parse_args(argv)
 
@@ -806,6 +906,13 @@ def main(argv=None):
             A[k] = v
     if a.providers:
         A["providers"] = [p.strip() for p in a.providers.split(",") if p.strip()]
+    if a.require_cert:
+        A["required_certifications"] = list(A.get("required_certifications") or []) + a.require_cert
+    try:
+        parse_requirements(A.get("required_certifications"))
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
 
     estate = load_json(a.estate)
     catalogue = load_json(a.catalogue)
@@ -821,6 +928,8 @@ def main(argv=None):
     rec = plan["recommended_provider"]
     out = {"output": a.output, "baseline_eur_month": plan["baseline_eur_month"],
            "confidence": plan["confidence"]["grade"], "recommended": rec, "providers": {}}
+    if plan["compliance"]:
+        out["compliance"] = {k: plan["compliance"][k] for k in ("required_text", "met_by", "recommended_meets")}
     for pk, r in plan["providers"].items():
         out["providers"][pk] = {s: {"total": v["monthly_eur"]["total"], "ex_ops": v["monthly_eur"]["total_excluding_operations"],
                                     "saving_pct": v["saving_pct"], "servers": v["server_count"], "layout": v["layout"]}

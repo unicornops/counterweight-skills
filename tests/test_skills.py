@@ -363,6 +363,86 @@ class BareMetalEstimateProviders(unittest.TestCase):
         self.assertFalse(plan["providers"]["ovhcloud"]["scenarios"]["right_sized"]["fits"])
         self.assertEqual(plan["recommended_provider"], "hetzner")
 
+    def certified(self, certs, **overrides):
+        """A catalogue copy where each provider holds exactly the certifications given, everywhere unless listed."""
+        cat = json.loads(json.dumps(self.catalogue))
+        for key, p in cat["providers"].items():
+            p["certifications"] = {c: {"source": "https://example.org/", **({"locations": locs} if locs else {})}
+                                   for c, locs in certs.get(key, {}).items()}
+        a = dict(self.estimate_mod.DEFAULTS, **overrides)
+        return self.estimate_mod.estimate(self.small_estate(), cat, a)
+
+    def test_certification_requirements_parse(self):
+        parse = self.estimate_mod.parse_requirements
+        self.assertEqual(parse(["iso27001|soc2", "pci-dss"]), [["iso27001", "soc2"], ["pci-dss"]])
+        self.assertEqual(parse(["ISO27001, soc2"]), [["iso27001"], ["soc2"]])
+        self.assertEqual(parse([]), [])
+        with self.assertRaises(ValueError):
+            parse(["soc3"])
+        r = subprocess.run([sys.executable, "-B", str(self.SKILL / "scripts" / "estimate.py"), "missing.json",
+                            "--require-cert", "fedramp"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("unknown certification fedramp", r.stderr)
+
+    def test_recommendation_meets_the_certification_requirement(self):
+        base = self.certified({})
+        cheapest = base["recommended_provider"]
+        self.assertIsNone(base["compliance"])
+        other = next(k for k in ("hetzner", "ovhcloud", "scaleway") if k != cheapest)
+        plan = self.certified({cheapest: {"iso27001": None}, other: {"iso27001": None, "soc2": None}},
+                              required_certifications=["soc2"])
+        self.assertEqual(plan["recommended_provider"], other)
+        self.assertEqual(plan["compliance"]["met_by"], [other])
+        self.assertFalse(plan["providers"][cheapest]["meets_requirements"])
+        either = self.certified({cheapest: {"iso27001": None}, other: {"soc2": None}},
+                                required_certifications=["iso27001|soc2"])
+        self.assertEqual(either["recommended_provider"], cheapest)
+        self.assertEqual(sorted(either["compliance"]["met_by"]), sorted([cheapest, other]))
+
+    def test_certified_locations_must_overlap(self):
+        plan = self.certified({"hetzner": {"iso27001": ["Falkenstein DE", "Nuremberg DE"], "soc2": ["Helsinki FI"]},
+                               "ovhcloud": {"iso27001": None, "soc2": ["London UK"]}},
+                              providers=["hetzner", "ovhcloud"], required_certifications=["iso27001", "soc2"])
+        self.assertFalse(plan["providers"]["hetzner"]["meets_requirements"])
+        self.assertEqual(plan["providers"]["ovhcloud"]["certified_locations"], ["London UK"])
+        self.assertEqual(plan["recommended_provider"], "ovhcloud")
+
+    def test_expired_certificates_do_not_count(self):
+        cat = json.loads(json.dumps(self.catalogue))
+        cat["providers"]["hetzner"]["certifications"]["iso27001"]["valid_until"] = "2020-01-01"
+        a = dict(self.estimate_mod.DEFAULTS, providers=["hetzner"], required_certifications=["iso27001"])
+        plan = self.estimate_mod.estimate(self.small_estate(), cat, a)
+        self.assertFalse(plan["providers"]["hetzner"]["meets_requirements"])
+        self.assertTrue(any("expired on 2020-01-01" in f["text"] for f in plan["flags"]))
+
+    def test_qualifying_opt_in_providers_are_added(self):
+        plan = self.certified({"hetzner": {"iso27001": None}, "vultr": {"soc2": None}},
+                              required_certifications=["soc2"])
+        self.assertIn("vultr", plan["providers"])
+        self.assertNotIn("leaseweb", plan["providers"])
+        self.assertEqual(plan["recommended_provider"], "vultr")
+        self.assertEqual(plan["compliance"]["opt_in_added"], ["vultr"])
+        self.assertTrue(any("not priced by default" in f["text"] for f in plan["flags"]))
+        asked = self.certified({"vultr": {"soc2": None}}, providers=["hetzner"], required_certifications=["soc2"])
+        self.assertEqual(list(asked["providers"]), ["hetzner"], "an explicit provider list is respected")
+
+    def test_no_qualifying_provider_is_said_plainly(self):
+        plan = self.certified({}, required_certifications=["pci-dss"])
+        self.assertEqual(plan["compliance"]["met_by"], [])
+        self.assertFalse(plan["compliance"]["recommended_meets"])
+        self.assertTrue(any(f["level"] == "error" and "PCI DSS" in f["text"] for f in plan["flags"]))
+
+    def test_catalogue_certifications_are_sourced(self):
+        for key, p in self.catalogue["providers"].items():
+            with self.subTest(provider=key):
+                self.assertRegex(p["certifications_checked"], r"^\d{4}-\d{2}-\d{2}$")
+                for cert, c in p["certifications"].items():
+                    self.assertIn(cert, self.estimate_mod.CERTIFICATIONS)
+                    self.assertTrue(c["source"].startswith("https://"), cert)
+                    self.assertTrue(c.get("scope"), f"{cert} needs its scope statement")
+                    locs = c.get("locations", "all")
+                    self.assertTrue(locs == "all" or set(locs) <= set(p["locations"]), (cert, locs))
+
     def test_decoders_for_new_clouds(self):
         self.assertEqual((self.specs.decode("bx2-4x16")["vcpu"], self.specs.decode("bx2-4x16")["ram_gb"]), (4, 16))
         ali = self.specs.decode("ecs.g8ae.4xlarge")

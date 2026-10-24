@@ -3,17 +3,22 @@
 
 Supported inputs (CSV, .csv.gz, or .zip of CSVs; Parquet if pyarrow is installed):
   * AWS Cost and Usage Report, legacy (lineItem/...) and CUR 2.0 (line_item_...)
-  * AWS / Azure / Google Cloud FOCUS exports (BilledCost, EffectiveCost, ServiceName ...)
+  * FOCUS exports from AWS, Azure, Google Cloud, Oracle (OCI), IBM Cloud and Alibaba Cloud
+    (BilledCost, EffectiveCost, ServiceName ...); Alibaba's FOCUS preview carries no quantities
   * Azure Cost Management exports, actual or amortised (MeterCategory, CostInBillingCurrency ...)
   * Google Cloud billing export to BigQuery, saved as CSV (service.description, sku.description ...)
+  * Oracle Cloud (OCI) cost reports (lineItem/..., product/service, cost/myCost ...)
+  * IBM Cloud usage CSVs: the "Instances" export (Usage Metric, Usage Quantity, Cost ...) and the
+    Account Resource Usage section of the "Summary" export
   * Any two-column service/cost summary (e.g. a Cost Explorer CSV): service-level only
 
-PDF invoices are not parsed here. Read them yourself and write estate.json by hand
+Alibaba Cloud's bill-details CSVs are not parsed (their headers are not documented); use its FOCUS
+export. PDF invoices are not parsed here. Read them yourself and write estate.json by hand
 following references/estate-schema.md, or write a small CSV with columns
 service,description,quantity,unit,cost and pass it with --format summary.
 
 Usage:
-  python3 ingest.py BILL.csv [MORE.csv ...] -o estate.json [--format auto|aws|azure|gcp|focus|summary]
+  python3 ingest.py BILL.csv [MORE.csv ...] -o estate.json [--format auto|aws|azure|gcp|oci|ibm|focus|summary]
                     [--currency USD] [--period-hours 730]
 
 Only the standard library is required. Prints a short summary to stderr and writes JSON.
@@ -34,7 +39,7 @@ import zipfile
 from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from specs import decode, find_instance_type  # noqa: E402
+from specs import decode, find_instance_type, oci_series, oci_traits  # noqa: E402
 
 csv.field_size_limit(min(sys.maxsize, 2**31 - 1))
 
@@ -103,14 +108,34 @@ def _iter_csv(f):
         dialect = csv.excel
     reader = csv.reader(f, dialect)
     header = None
+    meta_keys = pending = None
+    FILE_META.clear()
     for rec in reader:
         if not rec or all(not c.strip() for c in rec):
             continue
         if header is None:
-            header = [norm_header(c) for c in rec]
+            if sum(1 for c in rec if c.strip()) < 2:
+                continue  # a section title ("Account Metadata"), not a header
+            norm = [norm_header(c) for c in rec]
+            if "billing_month" in norm and ("account_owner_id" in norm or "entity_id" in norm):
+                meta_keys = pending = norm  # IBM Cloud: a metadata block comes before the usage table
+                continue
+            if meta_keys is not None:
+                if "service_name" in norm and ("usage_metric" in norm or "metric" in norm):
+                    header = norm
+                elif "support_cost" in norm:
+                    pending = norm  # the summary export's Support Summary section: keep its first row
+                elif pending is not None:
+                    FILE_META.update({k: v.strip() for k, v in zip(pending, rec) if k not in FILE_META})
+                    pending = None
+                continue  # section titles and other sections before the usage table
+            header = norm
             continue
         yield dict(zip(header, rec))
 
+
+# Key/value metadata that some exports put above their table (IBM Cloud's Account Metadata block)
+FILE_META = {}
 
 # Set per input file by sniff_locale(): European exports use ";" with decimal commas and DD/MM dates.
 LOCALE = {"decimal_comma": False, "dayfirst": False}
@@ -194,6 +219,10 @@ def detect(headers: set[str]) -> str:
         return "aws"
     if {"billed_cost", "charge_category"} <= headers or {"effective_cost", "service_name", "charge_category"} <= headers:
         return "focus"
+    if {"product_service", "cost_my_cost"} <= headers:
+        return "oci"
+    if "service_name" in headers and "plan_name" in headers and ("usage_metric" in headers or "metric" in headers):
+        return "ibm"
     if "meter_category" in headers:
         return "azure"
     if {"sku_description", "service_description"} <= headers:
@@ -283,47 +312,58 @@ RULES = [
     # ---- support
     (r"awssupport|support \(?(business|enterprise|developer)|^support\b|premier support|unified support|enhanced support", "support"),
     # ---- kubernetes control plane
-    (r"amazoneks.*(perCluster|cluster)|eks-hours|kubernetes engine.*(cluster management|kubernetes clusters)|"
+    (r"amazoneks.*(perCluster|cluster)|eks-hours|kubernetes engine.*(cluster management|kubernetes clusters)|container service for kubernetes|"
      r"(zonal|regional|autopilot) kubernetes clusters|azure kubernetes service.*(uptime sla|standard|premium)", "kubernetes_control"),
     # ---- containers
-    (r"fargate|autopilot pod|container instances|container apps|cloud run|app runner|app service|azure spring", "container"),
+    (r"fargate|autopilot pod|container instances|container apps|cloud run|app runner|app service|azure spring|code engine|"
+     r"elastic container instance|serverless app engine", "container"),
     # ---- serverless
-    (r"lambda|cloud functions|azure functions|functions.*execution|step functions|logic apps", "serverless"),
+    (r"lambda|cloud functions|azure functions|functions.*execution|step functions|logic apps|function compute", "serverless"),
     # ---- data services
-    (r"elasticache|memorystore|redis cache|cache for redis|managed redis|valkey", "cache"),
+    (r"elasticache|memorystore|redis cache|cache for redis|managed redis|valkey|apsaradb for redis|\btair\b|databases for redis", "cache"),
     (r"opensearch|elasticsearch|amazones\b|esinstance|cognitive search|ai search", "search"),
-    (r"amazonmsk|managed streaming for kafka|kafka\.|amazonmq|\bmq\.|event hubs|service bus|pub/?sub|sqs|sns\b|kinesis|eventbridge|awsevents|confluent", "messaging"),
-    (r"dynamodb|cosmos ?db|bigtable|spanner|firestore|datastore|documentdb|amazondocdb|keyspaces|neptune|\bdax\b|timestream|memorydb", "nosql"),
-    (r"redshift|bigquery|synapse|athena|\bemr\b|\bdataproc\b|\bdataflow\b|\bglue\b|databricks|fabric capacity|snowflake|looker|quicksight", "analytics"),
-    (r"relational database service|amazonrds|aurora|cloud sql|azure database for|sql database|sql managed instance|\bdb\.|alloydb|azure sql", "database"),
+    (r"amazonmsk|managed streaming for kafka|kafka\.|amazonmq|\bmq\.|event hubs|service bus|pub/?sub|sqs|sns\b|kinesis|eventbridge|awsevents|confluent|"
+     r"event streams|message queue|rocketmq", "messaging"),
+    (r"dynamodb|cosmos ?db|bigtable|spanner|firestore|datastore|documentdb|amazondocdb|keyspaces|neptune|\bdax\b|timestream|memorydb|"
+     r"apsaradb for mongodb|tablestore|lindorm|cloudant|databases for mongodb", "nosql"),
+    (r"redshift|bigquery|synapse|athena|\bemr\b|\bdataproc\b|\bdataflow\b|\bglue\b|databricks|fabric capacity|snowflake|looker|quicksight|"
+     r"maxcompute|analyticdb|hologres|e-mapreduce|dataworks|watsonx\.data", "analytics"),
+    (r"relational database service|amazonrds|aurora|cloud sql|azure database for|sql database|sql managed instance|\bdb\.|alloydb|azure sql|"
+     r"apsaradb|polardb|databases for (postgresql|mysql|enterprisedb)|\bdb2\b", "database"),
     # ---- gpu / ml
-    (r"sagemaker|vertex ai|machine learning|bedrock|azure openai|cognitive services|ai services|gemini|textract|rekognition|comprehend|transcribe|translate", "ml_managed"),
+    (r"sagemaker|vertex ai|machine learning|bedrock|azure openai|cognitive services|ai services|gemini|textract|rekognition|comprehend|transcribe|translate|"
+     r"model studio|bailian|platform for ai|watsonx\.ai|watson", "ml_managed"),
     (r"gpu|nvidia|tesla|\bh100\b|\ba100\b|\bl4\b|\bt4\b", "gpu"),
     # ---- network
     (r"natgateway|nat gateway|cloud nat", "nat"),
-    (r"cloudfront|front door|cloud cdn|azure cdn|\bcdn\b", "cdn"),
+    (r"cloudfront|front door|cloud cdn|azure cdn|\bcdn\b|content delivery network|dynamic route for cdn|internet services", "cdn"),
     (r"route ?53|cloud dns|azure dns|\bdns\b", "dns"),
     (r"loadbalanc|load balanc|lcuusage|application gateway|forwarding rule|awselb|elasticloadbalancing", "load_balancer"),
     (r"idleaddress|publicipv4|ip address|external ip|static ip|public ip", "ip"),
     (r"inter[ -]?zone|regional-bytes|datatransfer-regional|intra[- ]?region|inter availability zone|inter-az", "inter_az"),
     (r"inter[ -]?region|aws-out-bytes|aws-in-bytes|intercontinental|intra continent|inter continent|vnet peering|global peering|transit gateway|transitgateway|vpc peering|private ?link|vpcendpoint|vpc endpoint|direct ?connect|expressroute|interconnect|vpn", "network_other"),
-    (r"datatransfer-out|data transfer out|internet egress|egress|download (worldwide|china|australia|apac|americas|emea)|bandwidth|\bout-bytes\b|standard data transfer", "egress"),
+    (r"datatransfer-out|data transfer out|internet egress|egress|download (worldwide|china|australia|apac|americas|emea)|bandwidth|\bout-bytes\b|standard data transfer|"
+     r"internet shared bandwidth|elastic ip address", "egress"),
     (r"datatransfer-in|data transfer in", "free"),
     # ---- storage
     (r"key vault|\bkms\b|secrets? ?manager", "security"),
     (r"snapshot|backup|aws backup|recovery services|site recovery|backup vault", "backup"),
     (r"glacier|deep ?archive|gda-|archive storage|cold ?line|archive\b", "archive_storage"),
     (r"simple storage service|amazons3|cloud storage|blob|object storage|timedstorage|data lake storage|\bs3\b|requests-tier|\bgcs\b", "object_storage"),
-    (r"amazonefs|\befs\b|fsx|filestore|azure files|\bfiles\b|netapp", "file_storage"),
-    (r"elastic block store|ebs\b|ebs:|volumeusage|managed disks|persistent disk|\bpd capacity|hyperdisk|ssd backed pd|balanced pd|storage pd|\bdisk\b|volumep-iops|volumep-throughput", "block_storage"),
+    (r"amazonefs|\befs\b|fsx|filestore|azure files|\bfiles\b|netapp|file storage|apsara file storage|\bnas\b", "file_storage"),
+    (r"elastic block store|ebs\b|ebs:|volumeusage|managed disks|persistent disk|\bpd capacity|hyperdisk|ssd backed pd|balanced pd|storage pd|\bdisk\b|volumep-iops|volumep-throughput|"
+     r"elastic block storage|block storage for vpc|block volume", "block_storage"),
     # ---- monitoring & security
-    (r"cloudwatch|cloud logging|cloud monitoring|log analytics|azure monitor|application insights|x-ray|cloudtrail|operations suite|stackdriver|managed prometheus|managed grafana", "monitoring"),
-    (r"guardduty|security ?hub|inspector|macie|defender|sentinel|security command center|waf|shield|kms|key vault|secrets ?manager|certificate|cloud armor|firewall|config\b|awsconfig|cloud key", "security"),
+    (r"cloudwatch|cloud logging|cloud monitoring|log analytics|azure monitor|application insights|x-ray|cloudtrail|operations suite|stackdriver|managed prometheus|managed grafana|"
+     r"log service|cloudmonitor|application real-time monitoring|cloud logs|activity tracker", "monitoring"),
+    (r"guardduty|security ?hub|inspector|macie|defender|sentinel|security command center|waf|shield|kms|key vault|secrets ?manager|certificate|cloud armor|firewall|config\b|awsconfig|cloud key|"
+     r"anti-ddos|security center|key protect|hyper protect", "security"),
     (r"cognito|entra|active directory|identity|iam identity", "identity"),
     (r"\bses\b|amazonses|simple email|communication services|sendgrid|pinpoint|amazon connect", "email"),
     (r"marketplace|awsmarketplace|3rd party|third party", "marketplace"),
     # ---- compute (last so specific services win)
-    (r"elastic compute cloud|amazonec2|boxusage|spotusage|dedicatedusage|hostboxusage|virtual machines|compute engine|instance core|instance ram|\bvm\b|cpucredits|lightsail|elastic beanstalk|batch", "compute"),
+    (r"elastic compute cloud|amazonec2|boxusage|spotusage|dedicatedusage|hostboxusage|virtual machines|compute engine|instance core|instance ram|\bvm\b|cpucredits|lightsail|elastic beanstalk|batch|"
+     r"elastic compute service|virtual servers? for vpc|bare metal servers? for vpc|(?<!azure )kubernetes service|openshift on ibm", "compute"),
 ]
 _RULES = [(re.compile(p, re.I), c) for p, c in RULES]
 
@@ -387,7 +427,7 @@ class Estate:
             pricing=None, usage_hours=0.0, vcpu_hours=0.0, ram_gb_hours=0.0, gpu_hours=0.0, gpu_model=None,
             storage_gb_month=0.0, storage_class=None, transfer_gb=0.0, requests=0.0, multi_az=False,
             replicas_included=False, standby=False, resource_id=None, description="", start=None, end=None, currency=None,
-            series=None):
+            series=None, cost_implied_ok=False):
         if currency:
             self.currencies[currency] += abs(cost)
         self.totals[category] += cost
@@ -413,6 +453,8 @@ class Estate:
                 it["replicas_included"] = True
             if standby:
                 it["standby"] = True
+            if cost_implied_ok:
+                it["cost_implied_ok"] = True
             for n in self.NUMS:
                 it[n] = 0.0
             it["description"] = (description or "")[:160]
@@ -877,6 +919,244 @@ def ingest_gcp(rows, est: Estate, headers):
                 pass
 
 # ---------------------------------------------------------------------------
+# Oracle Cloud Infrastructure: cost report (product/service, cost/myCost ...) and the
+# OCI service codes, shared with OCI's FOCUS reports (ServiceName = product/service)
+# ---------------------------------------------------------------------------
+
+# product/service codes as they appear in OCI cost and FOCUS reports
+OCI_SERVICE_CATEGORY = {
+    "COMPUTE": "compute", "BLOCK_STORAGE": "block_storage", "OBJECTSTORE": "object_storage",
+    "FILESTORAGESERVICE": "file_storage", "ORALB": "load_balancer", "OKE_CONTROL_PLANE": "kubernetes_control",
+    "ODSP": "database", "OPENSEARCH": "search", "ORACLE_STREAMING_SERVICE": "messaging",
+    "IDENTITY_AND_ACCESS_MANAGEMENT": "identity", "TELEMETRY": "monitoring",
+}
+# description patterns (product/description is the SKU name) that win over the service code
+OCI_DESC_CATEGORY = [
+    (r"windows os|sql server|nvidia ai enterprise|weblogic|\bbyol\b", "licence"),
+    (r"outbound data transfer.*(inter|region)|inter.?region|fastconnect|site-to-site|vpn", "network_other"),
+    (r"outbound data transfer", "egress"),
+    (r"archive storage", "archive_storage"),
+    (r"backup", "backup"),
+    (r"gpu", "gpu"),
+    (r"image storage", "object_storage"),
+    (r"load balancer", "load_balancer"),
+    (r"kubernetes engine.*virtual node|container instance", "container"),
+    (r"kubernetes|container engine", "kubernetes_control"),
+    (r"autonomous|exadata|base database|oracle database|mysql|heatwave|postgresql|timesten", "database"),
+    (r"cache with redis|redis", "cache"),
+    (r"opensearch", "search"),
+    (r"streaming|kafka|queue|notifications", "messaging"),
+    (r"functions", "serverless"),
+    (r"logging|log analytics|monitoring|apm\b", "monitoring"),
+    (r"\bdns\b", "dns"),
+    (r"email delivery", "email"),
+    (r"vault|key management|waf|web application firewall|network firewall|cloud guard|data safe|bastion|certificate", "security"),
+    (r"identity|\biam\b", "identity"),
+    (r"generative ai|language|vision|speech|document understanding|data science", "ml_managed"),
+    (r"analytics cloud|data integration|data flow|big data|data catalog", "analytics"),
+    (r"nosql", "nosql"),
+]
+_OCI_DESC = [(re.compile(p, re.I), c) for p, c in OCI_DESC_CATEGORY]
+OCI_GPU = [("a100 - v2", "A100-80"), ("a100-v2", "A100-80"), ("a100 80", "A100-80"), ("a100 40", "A100-40"),
+           ("h100", "H100"), ("h200", "H200"), ("b200", "B200"), ("l40s", "L40S"), ("a10", "A10"),
+           ("gpu standard - v2", "V100"), ("gpu standard - x7", "P100")]
+
+
+def oci_line(service: str, desc: str, unit: str, qty: float, period_hours: float = 730.0) -> dict:
+    """Category and usage quantities for one OCI cost line, from its service code, SKU name and unit."""
+    svc = (service or "").strip().upper()
+    d = (desc or "").lower()
+    u = (unit or "").lower()
+    cat = None
+    for rx, c in _OCI_DESC:
+        if rx.search(d):
+            cat = c
+            break
+    base = OCI_SERVICE_CATEGORY.get(svc)
+    if cat is None:
+        cat = base or classify(f"{service} :: {desc}")
+    elif cat == "gpu" and base and base != "compute":
+        cat = base  # GPU-backed shapes of a managed service stay with the service
+    if base in ("database", "search", "cache") and cat in ("compute", "object_storage"):
+        cat = base
+    kw = {"category": cat}
+    ocpu = "ocpu" in u and "fee" not in u
+    gb_hours = re.search(r"\b(gigabytes?|gb)( per | )hours?\b|gigabyte per hour", u) and "redis" not in u
+    series = None
+    if cat in ("compute", "database", "search", "container") and (ocpu or gb_hours):
+        series = oci_series(desc)
+        per, smt, _gen = oci_traits(series)
+        if ocpu:
+            kw["vcpu_hours"] = qty * per
+        else:
+            kw["ram_gb_hours"] = qty
+        kw["series"] = f"oci-{series}" if series and cat == "compute" else None
+        if cat == "database":
+            kw["engine"] = engine_of(desc) or ("postgres" if svc == "ODSP" else None)
+    elif cat == "database" and re.search(r"ecpu", u):
+        kw["cost_implied_ok"] = True  # ECPUs are an abstract unit; size from cost at list prices
+        kw["engine"] = "oracle" if re.search(r"autonomous|exadata|base database|oracle database", d) else engine_of(desc)
+    elif cat == "database":
+        kw["engine"] = "oracle" if re.search(r"autonomous|exadata|base database|oracle database", d) else (
+            engine_of(desc) or ("postgres" if svc == "ODSP" else None))
+        if "storage" in d and "month" in u:
+            kw.update(category="database_storage", storage_gb_month=qty)
+        elif "heatwave" in d or "capacity per hour" in u:
+            kw["cost_implied_ok"] = True
+    elif cat == "search" and "storage" in d and "month" in u:
+        kw.update(category="search_storage", storage_gb_month=qty, engine="opensearch")
+    elif cat == "cache" and "redis" in u:
+        kw.update(ram_gb_hours=qty, vcpu_hours=qty / 6, engine="redis")
+    elif cat == "gpu":
+        kw.update(gpu_hours=qty if "gpu" in u else 0.0,
+                  gpu_model=next((v for k, v in OCI_GPU if k in d), "unknown"))
+    elif cat in ("block_storage", "object_storage", "file_storage", "archive_storage", "backup"):
+        if "month" in u and re.search(r"\bg(b|igabyte)", u) and "performance unit" not in d:
+            kw.update(storage_gb_month=qty * (1024 if re.search(r"\bt(b|erabyte)", u) else 1),
+                      storage_class="archive" if cat == "archive_storage" else (
+                          "infrequent" if "infrequent" in d else "standard"))
+        elif "request" in u:
+            kw["requests"] = qty
+    elif cat in ("egress", "network_other"):
+        if re.search(r"\bg(b|igabyte)|\bt(b|erabyte)", u):
+            kw["transfer_gb"] = qty * (1024 if re.search(r"\bt(b|erabyte)", u) else 1)
+    elif cat == "kubernetes_control" and re.search(r"cluster", u):
+        kw["usage_hours"] = qty
+    return {k: v for k, v in kw.items() if v not in (None, 0.0) or k == "category"}
+
+
+def ingest_oci(rows, est: Estate, headers):
+    """OCI cost report CSV (Billing and Cost Management > Cost and Usage Reports)."""
+    est.cost_basis.add("oci:my_cost")
+    for r in rows:
+        svc = first(r, "product_service")
+        desc = first(r, "product_description")
+        unit = first(r, "cost_sku_unit_description", "cost_billing_unit_readable")
+        qty = fnum(first(r, "usage_billed_quantity"))
+        cost = fnum(first(r, "cost_my_cost"))
+        currency = first(r, "cost_currency_code")
+        start = parse_date(first(r, "line_item_interval_usage_start"))
+        end = parse_date(first(r, "line_item_interval_usage_end"))
+        rid = first(r, "product_resource_id")
+        kw = oci_line(svc, desc, unit, qty)
+        est.add(service=svc or "OCI", cost=cost, cloud="oci", resource_id=rid, description=desc,
+                start=start, end=end, currency=currency, **kw)
+
+# ---------------------------------------------------------------------------
+# IBM Cloud usage CSV (Billing and usage > Usage > Export CSV: "Instances", or the
+# Account Resource Usage section of the "Summary" export)
+# ---------------------------------------------------------------------------
+
+IBM_SERVICE_CATEGORY = [
+    (r"windows_vcpu|redhat_vcpu|rhel_vcpu|os_|_os_|licen[cs]e|sql_server", "licence"),
+    (r"bandwidth", "egress"),
+    (r"kubernetes service|openshift", "compute"),        # worker nodes are VMs; IKS has no control-plane fee
+    (r"virtual server|bare metal server", "compute"),
+    (r"file storage", "file_storage"),
+    (r"block storage|storagelayer", "block_storage"),
+    (r"cloud object storage", "object_storage"),
+    (r"databases for (redis|valkey)", "cache"),
+    (r"databases for (elasticsearch|opensearch)", "search"),
+    (r"databases for (mongodb|etcd)|cloudant", "nosql"),
+    (r"databases for|db2|mysql|postgres", "database"),
+    (r"load balancer", "load_balancer"),
+    (r"floating ip|public gateway", "ip"),
+    (r"transit gateway|direct link|vpn", "network_other"),
+    (r"event streams|mq\b|messaging", "messaging"),
+    (r"code engine", "container"),
+    (r"cloud functions", "serverless"),
+    (r"log analysis|cloud logs|monitoring|activity tracker|metrics routing", "monitoring"),
+    (r"key protect|hyper protect|secrets manager|security and compliance|certificate", "security"),
+    (r"internet services", "cdn"),
+    (r"dns services", "dns"),
+    (r"app id", "identity"),
+    (r"watson|watsonx", "ml_managed"),
+    (r"support", "support"),
+]
+_IBM = [(re.compile(p, re.I), c) for p, c in IBM_SERVICE_CATEGORY]
+IBM_SHAPE = re.compile(r"(?:^|[^\w.])(\d{1,3})x(\d{1,4})(?:\b|-)")
+
+
+def ibm_line(service, plan, metric, unit, qty, profile, period_hours):
+    """Category and quantities for one IBM Cloud usage line."""
+    text = f"{service} :: {plan} :: {metric}"
+    m_ = (metric or "").upper()
+    u = (unit or "").upper()
+    cat = next((c for rx, c in _IBM if rx.search(text)), None) or classify(text)
+    if cat == "object_storage" and re.search(r"COLD_VAULT|ARCHIVE|GLACIER", m_):
+        cat = "archive_storage" if "STORAGE" in m_ else cat
+    if cat in ("compute", "block_storage") and re.search(r"(_|^)(storage|disk)", m_) and "GUEST_DISK" not in m_:
+        cat = "block_storage"
+    kw = {"category": cat}
+    if u == "CHARGE":
+        # classic infrastructure: the quantity is money; cores and RAM are in the metric name and billed monthly
+        c = re.match(r"GUEST_CORES_(\d+)", m_)
+        r = re.match(r"RAM_(\d+)_GB", m_)
+        if cat == "compute" and c:
+            kw["vcpu_hours"] = int(c.group(1)) * period_hours
+        elif cat == "compute" and r:
+            kw["ram_gb_hours"] = int(r.group(1)) * period_hours
+        return kw
+    hours = "HOUR" in m_ or "HOUR" in u
+    if cat == "compute" and hours:
+        spec = decode(profile, "ibm") if profile else None
+        shape = None if spec else IBM_SHAPE.search(f" {plan} ")
+        if spec:
+            kw.update(instance_type=profile, usage_hours=qty, vcpu_hours=qty * spec["vcpu"], ram_gb_hours=qty * spec["ram_gb"])
+        elif shape:
+            kw.update(usage_hours=qty, vcpu_hours=qty * int(shape.group(1)), ram_gb_hours=qty * int(shape.group(2)))
+        else:
+            kw.update(usage_hours=qty, cost_implied_ok=True)
+    elif cat in ("database", "cache", "search", "nosql"):
+        kw["engine"] = engine_of(text)
+        kw["replicas_included"] = True  # IBM Cloud Databases bill every member's cores, RAM and disk
+        if re.search(r"VIRTUAL_PROCESSOR_CORE|VCPU", m_):
+            kw["vcpu_hours"] = qty  # virtual processor core-hours
+        elif "RAM" in m_ or "MEMORY" in m_:
+            kw["ram_gb_hours"] = qty * period_hours if "MONTH" in m_ else qty
+        elif "DISK" in m_ or "STORAGE" in m_:
+            gbm = qty / period_hours if "HOUR" in m_ else qty
+            kw.update(category=f"{cat}_storage" if cat in ("database", "search", "cache") else cat, storage_gb_month=gbm)
+        else:
+            kw["cost_implied_ok"] = True  # host flavours (HOST_FOUR_SIXTEEN_FLEX ...) carry no usable quantity
+    elif cat in ("block_storage", "object_storage", "archive_storage", "file_storage", "backup"):
+        if re.search(r"STORAGE|GIGABYTE_(HOURS|MONTHS)|CAPACITY", m_) and not re.search(r"CALLS|RETRIEVAL|IOPS", m_):
+            kw["storage_gb_month"] = qty / period_hours if "HOUR" in m_ or "HOUR" in u else qty
+    elif cat == "egress" and re.search(r"GIGABYTE|GB", u + " " + m_):
+        kw["transfer_gb"] = qty
+    return kw
+
+
+def ingest_ibm(rows, est: Estate, headers):
+    est.cost_basis.add("ibm:cost")
+    start = end = None
+    bm = FILE_META.get("billing_month", "")
+    if re.fullmatch(r"\d{4}-\d{2}", bm):
+        start = dt.datetime.strptime(bm + "-01", "%Y-%m-%d")
+        end = (start + dt.timedelta(days=32)).replace(day=1)
+    period_hours = (end - start).total_seconds() / 3600 if start else 730.0
+    currency = ""
+    for r in rows:
+        if first(r, "non_chargeable").lower() == "true":
+            continue  # informational only, not part of the charges
+        svc = first(r, "service_name")
+        if not svc:
+            continue
+        plan = first(r, "plan_name")
+        metric = first(r, "usage_metric", "metric")
+        unit = first(r, "usage_unit", "unit")
+        qty = fnum(first(r, "usage_quantity", "quantity"))
+        cost = fnum(first(r, "cost", "usage_cost"))
+        kw = ibm_line(svc, plan, metric, unit, qty, first(r, "profile"), period_hours)
+        currency = first(r, "currency", "currency_code") or currency
+        est.add(service=svc, cost=cost, cloud="ibm", resource_id=first(r, "instance_id"),
+                description=f"{plan} {metric}".strip(), start=start, end=end, currency=currency, **kw)
+    support = fnum(FILE_META.get("support_cost")) + fnum(FILE_META.get("support_overage"))
+    if support:
+        est.add(category="support", service=f"IBM Cloud Support ({FILE_META.get('support_type') or 'plan'})", cost=support,
+                cloud="ibm", start=start, end=end, currency=currency)
+
+# ---------------------------------------------------------------------------
 # FOCUS (FinOps Open Cost and Usage Specification) 1.x
 # ---------------------------------------------------------------------------
 
@@ -885,9 +1165,12 @@ def ingest_focus(rows, est: Estate, headers):
     use_eff = "effective_cost" in headers
     est.cost_basis.add("focus:effective_cost" if use_eff else "focus:billed_cost")
     for r in rows:
-        provider = first(r, "provider_name", "service_provider_name").lower()
+        provider = first(r, "provider_name", "service_provider_name", "provider").lower()
         cloud = "aws" if "aws" in provider or "amazon" in provider else (
-            "azure" if "microsoft" in provider or "azure" in provider else ("gcp" if "google" in provider else provider or "unknown"))
+            "azure" if "microsoft" in provider or "azure" in provider else (
+                "gcp" if "google" in provider else ("oci" if "oracle" in provider else (
+                    "alibaba" if "alibaba" in provider or "aliyun" in provider else (
+                        "ibm" if provider.startswith("ibm") else provider or "unknown")))))
         chg = first(r, "charge_category").lower()
         svc = first(r, "service_name")
         subcat = first(r, "service_subcategory", "service_category")
@@ -917,12 +1200,18 @@ def ingest_focus(rows, est: Estate, headers):
             cat = "tax"
         elif chg == "credit":
             cat = "credit"
-        elif chg == "adjustment":
+        elif chg == "adjustment" and cloud != "oci":
             cat = "discount"
         else:
             cat = classify(text)
         kw = dict(category=cat, service=svc, cost=cost, cloud=cloud, resource_id=rid, description=desc or usage,
                   start=start, end=end, currency=currency)
+        if cloud == "oci" and cat not in ("tax", "credit"):
+            # OCI marks corrections as Adjustment: they amend usage lines, so classify them like usage
+            kw.update(oci_line(svc, desc, first(r, "pricing_unit", "usage_unit", "consumed_unit"),
+                               fnum(first(r, "pricing_quantity", "usage_quantity", "consumed_quantity"))))
+            est.add(**kw)
+            continue
         itype = None
         for k, v in details.items():
             if re.search(r"instance.?type|vm.?size|machine.?type|service.?type|^size$", k, re.I) and isinstance(v, str):
@@ -998,8 +1287,8 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("files", nargs="+")
     ap.add_argument("-o", "--output", default="estate.json")
-    ap.add_argument("--format", default="auto", choices=["auto", "aws", "azure", "gcp", "focus", "summary"])
-    ap.add_argument("--cloud", help="cloud hint for summary files: aws|azure|gcp")
+    ap.add_argument("--format", default="auto", choices=["auto", "aws", "azure", "gcp", "oci", "ibm", "focus", "summary"])
+    ap.add_argument("--cloud", help="cloud hint for summary files: aws|azure|gcp|oci|ibm|alibaba")
     ap.add_argument("--currency", help="override currency code")
     ap.add_argument("--period-hours", type=float, help="override billing period length in hours (730 = one month)")
     a = ap.parse_args(argv)
@@ -1050,6 +1339,10 @@ def main(argv=None):
             ingest_azure(counting(chain()), est, headers)
         elif fmt == "gcp":
             ingest_gcp(counting(chain()), est, headers)
+        elif fmt == "ibm":
+            ingest_ibm(counting(chain()), est, headers)
+        elif fmt == "oci":
+            ingest_oci(counting(chain()), est, headers)
         elif fmt == "focus":
             ingest_focus(counting(chain()), est, headers)
         else:

@@ -22,6 +22,8 @@ Every item becomes **average concurrent demand** over the billing period:
 - **Thread equivalents.** One cloud vCPU on x86 is one SMT thread. One vCPU on Arm (Graviton, Ampere, Axion, Cobalt) or on x86 with SMT off (GCP T2D) is a whole core, counted as **1.4** threads (`NO_SMT_THREAD_EQUIV`). A busy SMT sibling delivers roughly 60–70% of a core, so a whole core ≈ 1.4–1.6 threads; 1.4 is the conservative end.
 - **Burstable instances** (t2/t3/t4g, Azure B, GCP e2 shared-core) count at their baseline share: like-for-like `max(0.5, 2 × baseline)`, right-sized `max(0.25, baseline)` of their vCPUs. Right-sized does not apply `cpu_util` on top, since the baseline already reflects use.
 - **SMT off:** AWS AMD families from the 7th generation (m7a, c7a, r7a, and their 8th-generation successors) expose one vCPU per physical core, like Graviton, and count as 1.4 threads.
+- **OCI OCPUs:** OCI bills OCPU-hours and memory GB-hours per shape series. On x86 one OCPU is two vCPUs (a core with both threads); on Ampere A1 it is one Arm core, on A2 and A4 two Arm cores, and Arm cores count as 1.4 threads each. The series sets the generation factor (E2 and X7 legacy, E3 older, E4, X9 and A1 recent, E5, E6, X12, A2 and A4 current).
+- **IBM Cloud** VPC profiles carry their shape (`bx2-4x16`: 4 vCPU, 16 GiB; generation 2 counts as older, 3 and 4 as current). IBM Cloud Databases bill every member, so their quantities already include replicas.
 - **Cost-only lines on service-level bills** (PDF invoices, service totals) get cost-implied capacity from approximate list prices (`REF_USD` in `estimate.py`): e.g. $36 per general-purpose vCPU-month with 4 GB/vCPU, $95 per managed-database vCPU-month with 8 GB/vCPU. These lines are marked `cost_implied` and lower the confidence grade. On usage-level bills a line with cost but no quantity is a fee (requests, IOPS, API calls), not capacity, so nothing is implied from it (set `cost_implied_ok` on an item to override). Cost-implied database capacity is deliberately generous (the line often includes storage and backups), which errs towards more bare metal, not less.
 - **Serverless:** Lambda GB-seconds → GB-hours of memory, with one vCPU per 1.769 GB (Lambda's allocation ratio). Fargate and Cloud Run bill vCPU and memory directly.
 - **Storage** is the average GB held: GB-months ÷ whole calendar months (providers measure GB-months against the actual month length). **Transfer** is GB per month.
@@ -68,15 +70,17 @@ GPU demand is matched by GPU memory (≥ the cloud GPU's) and class rank (`GPU_R
 
 Limited-stock configurations (`availability: limited`) are skipped unless `allow_limited` is true: you can't build a fleet on them.
 
+**Which providers.** Hetzner, OVHcloud and Scaleway are priced by default: each publishes official euro prices excluding VAT, has EU locations, sells S3-compatible object storage and a load balancer, and has stock that can carry a fleet. Leaseweb, Cherry Servers, Latitude.sh, phoenixNAP, Teraswitch and Vultr are opt-in (`--providers default,<key>` or `all`) because each has a gap: unverified shop data (Leaseweb), thin stock and no object storage (Cherry Servers), US-dollar prices with an unclear VAT basis (Latitude.sh, Teraswitch), one European site (phoenixNAP), or no deployable large plans (Vultr). `references/refreshing-prices.md` has the full reasoning and the providers left out. The **recommended** provider is the cheapest right-sized total among providers with EU or UK locations whose catalogue holds the largest single workload; a provider that cannot hold it is shown as "no server fits" rather than with a misleadingly low total.
+
 ## 5. Everything else that costs money
 
 | Line | How |
 |---|---|
-| Object storage | Provider's S3-compatible storage for the object GB +25% growth, priced single-site for every provider so the comparison is like for like (cloud standard tiers span zones). Archive tiers stay in the cloud (already cheaper per TB). |
+| Object storage | Provider's S3-compatible storage for the object GB +25% growth, priced single-site for every provider so the comparison is like for like (cloud standard tiers span zones). Providers without S3-compatible storage in Europe (Cherry Servers, phoenixNAP, Teraswitch) are priced at OVHcloud's rate as a stand-in, and flagged (`object_storage_fallback` in the catalogue). Archive tiers stay in the cloud (already cheaper per TB). |
 | Off-site backup | `backup_factor` (2.0) × primary data (disks + database storage) in the provider's object storage, ideally another location. Replaces snapshots and backup services. |
-| Traffic | Hetzner and OVHcloud include unmetered traffic on the standard port; Leaseweb includes 30 TB per server. If average egress × 3 (peak) exceeds 60% of total port capacity, 10G uplinks are added where priced. |
+| Traffic | Hetzner, OVHcloud and Scaleway include unmetered traffic on the standard port. Others include an allowance per server (Cherry Servers 100 TB, Leaseweb 30 TB, Latitude.sh 20 TB, Vultr 10 TB plus 2 TB per account) or a pool shared by the account (phoenixNAP 15 TB per location, Teraswitch 150 TB per region group, taken cautiously as one pool), with egress above it at the provider's published package or overage rate. If average egress × 3 (peak) exceeds 60% of total port capacity, 10G uplinks are added where priced. |
 | Load balancers | Two of the provider's load balancers if the bill had any; otherwise HAProxy/keepalived on the cluster. |
-| Per-server extras | e.g. Hetzner's €1.70/mo IPv4 per server. |
+| Per-server extras | e.g. Hetzner's €1.70/mo IPv4 per server, Scaleway's €19.99/mo private network per server; fixed extras such as phoenixNAP's /29 IPv4 block. |
 | Retained cloud services | Today's cost of every retained line, unchanged. |
 | Operations effort | Incremental engineering time for running hardware-backed infrastructure: `0.10 + 0.02 × servers + 0.05 × self-run data engines + 0.05 if shared storage + 0.05 if Kubernetes` FTE, at least 0.25 and at most `0.5 + 0.02 × servers`, at €110,000 a year fully loaded (Ireland, senior platform engineer). The report also shows the saving with a full extra engineer. Override with `--ops-fte` when the person knows better. |
 | Contingency | 10% of bare-metal infrastructure. |
@@ -85,7 +89,7 @@ Limited-stock configurations (`availability: limited`) are skipped unless `allow
 
 ## 6. The baseline and the saving
 
-- **Baseline** = every bill line except tax and credits, converted to EUR at the catalogue's ECB rate and normalised to a 730-hour month. Negotiated discounts (EDP, CUDs, SUDs) stay in: they are real. Commitment fees are either amortised into usage (when the export has effective-cost columns) or kept as a commitment line.
+- **Baseline** = every bill line except tax and credits, converted to EUR at the catalogue's ECB rate (USD, GBP and a dozen other currencies, one dated rate) and normalised to a 730-hour month. Providers that price in US dollars are converted at the same rate; the original figure is kept in the catalogue as `list_price`. Negotiated discounts (EDP, CUDs, SUDs) stay in: they are real. Commitment fees are either amortised into usage (when the export has effective-cost columns) or kept as a commitment line.
 - **Saving** = baseline − bare-metal total. Reported with and without the operations line.
 - Retained lines appear on both sides, so they don't change the saving but do keep percentages honest.
 
@@ -107,8 +111,9 @@ Run through this on `plan.json` before writing the report. Fix the cause, don't 
 - [ ] Unclassified ("other") spend under 5%, or reviewed and dispositioned.
 - [ ] Every pool's `utilisation` is plausible: CPU and RAM 30–80%, NVMe under 75%. A pool at 10% CPU and 70% RAM is fine (memory-bound); one at 5% of everything means a minimum-node floor is driving cost, which matters for small estates.
 - [ ] `binding_constraint` makes sense for the workload (databases: RAM or NVMe; web tier: CPU).
-- [ ] No flag says the largest workload didn't fit. If it did, a bigger configuration is needed in the catalogue.
+- [ ] No flag says the largest workload didn't fit, and no provider shows "no server fits". If one does, a bigger configuration is needed in the catalogue (OVHcloud's base configurations stop at 128 GB RAM).
 - [ ] GPU matches are sensible (memory and class), or unmatched GPUs are explained.
 - [ ] Right-sized ≤ like-for-like. If not, check the per-pool choices: the optimiser can legitimately pick a layout with fewer, larger servers in one scenario.
 - [ ] The operations line is plausible for this organisation. If they already run Kubernetes on VMs with their own team, consider `--ops-fte` lower and say so.
 - [ ] Catalogue date and FX date are stated; unverified prices (`verified: false`) are not the main driver of the headline.
+- [ ] If an opt-in provider is featured, its caveat (currency, VAT basis, stock, object-storage stand-in) is in the summary you give.

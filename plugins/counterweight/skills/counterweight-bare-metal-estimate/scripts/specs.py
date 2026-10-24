@@ -469,16 +469,99 @@ def _gcp_gen(series: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Oracle Cloud (OCI)
+# ---------------------------------------------------------------------------
+# OCI bills flexible shapes per OCPU-hour and per GB-hour of memory, so the cost report
+# carries the shape series ("Standard - E4", "Standard - A1 - Memory"), not a shape name.
+# OCI's definitions: 1 OCPU on x86 = 2 vCPUs (one core, two threads); on Ampere A1 =
+# 1 core; on Ampere A2 and A4 = 2 cores. Arm cores have no SMT.
+# series -> (vCPU per OCPU, smt, generation)
+OCI_SERIES = {
+    "a1": (1, False, "recent"),     # Ampere Altra (Neoverse N1, Graviton2 class)
+    "a2": (2, False, "current"),    # AmpereOne
+    "a4": (2, False, "current"),    # AmpereOne M
+    "a4ax": (2, False, "current"),
+    "b1": (2, True, "legacy"), "x5": (2, True, "legacy"), "x7": (2, True, "legacy"),
+    "e2": (2, True, "legacy"),      # EPYC 7551 (Naples)
+    "e3": (2, True, "older"),       # EPYC 7742 (Rome)
+    "e4": (2, True, "recent"),      # EPYC 7J13 (Milan)
+    "e5": (2, True, "current"),     # EPYC 9J14 (Genoa)
+    "e6": (2, True, "current"), "e6ax": (2, True, "current"),  # EPYC 9J45 (Turin)
+    "x9": (2, True, "recent"),      # Xeon Platinum 8358 / 6354 (Ice Lake)
+    "x12ax": (2, True, "current"),  # Xeon 6987P-C (Granite Rapids)
+}
+OCI_SERIES_RE = re.compile(
+    r"\b(?:standard|optimized|dense\s*i/?o|hpc)\s*-\s*(?:hpc\s*-\s*)?([abex]\d{1,2}(?:\s*ax)?)\b", re.I)
+
+
+def oci_series(text: str) -> str | None:
+    """'Standard - E4 - Memory' -> 'e4'; 'Compute - Standard - X12 Ax - OCPU' -> 'x12ax'."""
+    m = OCI_SERIES_RE.search(text or "")
+    return re.sub(r"\s+", "", m.group(1).lower()) if m else None
+
+
+def oci_traits(series: str | None) -> tuple:
+    """(vCPU per OCPU, smt, generation) for an OCI series; unknown series are treated as recent x86."""
+    return OCI_SERIES.get((series or "").lower(), (2, True, "recent"))
+
+
+# ---------------------------------------------------------------------------
+# IBM Cloud VPC profiles: <family><arch><generation>[d][c]-<vCPU>x<GiB>, e.g. bx2-4x16
+# ---------------------------------------------------------------------------
+
+IBM_RE = re.compile(r"^([nbcmuvgofh])([xz])([0-9f])(d)?(c)?-(\d+)x(\d+)$")
+IBM_GEN = {"2": "older", "3": "current", "4": "current", "f": "recent"}  # gen 2 Cascade Lake, 3 Sapphire Rapids
+
+
+def decode_ibm(name: str) -> dict | None:
+    m = IBM_RE.match(name.strip().lower())
+    if not m:
+        return None
+    fam, arch, gen, inst, _conf, vcpu, ram = m.groups()
+    return _result(name=name, cloud="ibm", family=fam + arch + gen, vcpu=int(vcpu), ram_gb=float(ram),
+                   arch="s390x" if arch == "z" else "x86_64", generation=IBM_GEN.get(gen, "recent"),
+                   notes=["instance storage"] if inst else [])
+
+
+# ---------------------------------------------------------------------------
+# Alibaba Cloud ECS: ecs.<family>.<size>, e.g. ecs.g8ae.4xlarge = 16 vCPU, 64 GiB.
+# Size gives vCPU (large = 2, xlarge = 4, Nxlarge = 4N); RAM per vCPU is only implied by the
+# family letter (c 1:2, g 1:4, r 1:8), so other families are not decoded.
+# ---------------------------------------------------------------------------
+
+ALI_RE = re.compile(r"^ecs\.(?:hf)?([cgr])(\d+)([a-z]*)\.(\d*)(large|xlarge)$")
+ALI_RAM = {"c": 2, "g": 4, "r": 8}
+
+
+def decode_alibaba(name: str) -> dict | None:
+    m = ALI_RE.match(name.strip().lower())
+    if not m:
+        return None
+    fam, gen, suf, mult, size = m.groups()
+    vcpu = 2 if size == "large" else 4 * (int(mult) if mult else 1)
+    g = int(gen)
+    arm = "y" in suf  # g8y, c8y, r8y: Yitian 710 (Arm)
+    return _result(name=name, cloud="alibaba", family=f"{fam}{gen}{suf}", vcpu=vcpu, ram_gb=float(vcpu * ALI_RAM[fam]),
+                   arch="arm64" if arm else "x86_64", smt=not arm,
+                   generation="current" if g >= 8 else ("recent" if g == 7 else ("older" if g == 6 else "legacy")),
+                   confidence="medium", notes=["RAM implied by the family ratio"])
+
+
 def decode(name: str, cloud: str | None = None) -> dict | None:
-    """Decode an instance/size name. cloud may be 'aws', 'azure', 'gcp' or None (auto)."""
+    """Decode an instance/size name. cloud may be 'aws', 'azure', 'gcp', 'ibm', 'alibaba' or None (auto)."""
     if not name:
         return None
     s = name.strip()
-    order = {"aws": [decode_aws], "azure": [decode_azure], "gcp": [decode_gcp]}.get(
-        (cloud or "").lower(), None)
+    order = {"aws": [decode_aws], "azure": [decode_azure], "gcp": [decode_gcp], "ibm": [decode_ibm],
+             "alibaba": [decode_alibaba]}.get((cloud or "").lower(), None)
+    low = s.lower()
+    if low.startswith("ecs."):
+        order = [decode_alibaba]
     if order is None:
-        low = s.lower()
-        if low.startswith(("standard_", "basic_", "gp_standard", "bc_standard", "mo_standard")):
+        if IBM_RE.match(low):
+            order = [decode_ibm]
+        elif low.startswith(("standard_", "basic_", "gp_standard", "bc_standard", "mo_standard")):
             order = [decode_azure]
         elif re.match(r"^[a-z0-9]+-(standard|highmem|highcpu|megamem|ultramem|custom|micro|small|medium|highgpu|megagpu|ultragpu|hypermem)", low) or "custom-" in low:
             order = [decode_gcp]
@@ -497,7 +580,7 @@ def decode(name: str, cloud: str | None = None) -> dict | None:
 
 
 INSTANCE_TOKEN = re.compile(
-    r"\b((?:db\.|cache\.|ml\.)?[a-z]{1,4}\d{1,2}[a-z\-]*\.(?:\d*(?:nano|micro|small|medium|large|xlarge|xlplus)|metal(?:-\d+xl)?)(?:\.search)?)\b"
+    r"\b((?:db\.|cache\.|ml\.|ecs\.)?[a-z]{1,4}\d{1,2}[a-z\-]*\.(?:\d*(?:nano|micro|small|medium|large|xlarge|xlplus)|metal(?:-\d+xl)?)(?:\.search)?)\b"
     r"|\b(Standard_[A-Za-z0-9\-]+(?:_v\d+)?)\b"
     r"|\b((?:n1|n2|n2d|n4|e2|c2|c2d|c3|c3d|c4|c4a|c4d|t2d|t2a|m1|m2|m3|a2|a3|g2|h3|z3)-(?:standard|highmem|highcpu|megamem|ultramem|custom|highgpu|megagpu|ultragpu)-?\d*(?:-\d+)?)\b",
     re.IGNORECASE)

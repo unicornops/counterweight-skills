@@ -49,6 +49,7 @@ DISP_LABEL = {"migrate": "Moves to bare metal", "retain": "Stays as is", "elimin
               "baseline_only": "Discount (in your bill today)", "exclude": "Excluded"}
 SCEN_LABEL = {"like_for_like": "Like-for-like", "right_sized": "Right-sized"}
 KIND_LABEL = {"aws": "an AWS Cost and Usage Report", "azure": "an Azure cost export", "gcp": "a Google Cloud billing export",
+              "oci": "an Oracle Cloud cost report", "ibm": "an IBM Cloud usage export",
               "focus": "a FOCUS cost export", "summary": "an invoice summary", "invoice_pdf": "a PDF invoice",
               "manual": "figures read from your invoice"}
 ENGINE_LABEL = {"postgres": "PostgreSQL", "mysql": "MySQL", "sqlserver": "SQL Server", "oracle": "Oracle", "redis": "Redis",
@@ -130,7 +131,8 @@ def build(plan, client, sector, provider_key):
     b.append(("h1", f"Indicative bare-metal estimate{(' for ' + client) if client else ''}"))
     kinds = " and ".join(KIND_LABEL.get(k, k) for k in (inp.get("input_kind") or [])) or "a cloud bill"
     b.append(("meta", f"Prepared {today} from {kinds} covering {period}. "
-                      f"Prices exclude VAT. Bare-metal prices as of {nice_date(plan.get('catalogue_as_of'))}."))
+                      f"Prices exclude VAT. {prov['name']} prices as of "
+                      f"{nice_date(prov.get('prices_checked') or plan.get('catalogue_as_of'))}."))
 
     # ---- headline
     lo = min(like["saving_eur_month"], right["saving_eur_month"])
@@ -268,16 +270,24 @@ def build(plan, client, sector, provider_key):
     if len(P) > 1:
         b.append(("h3", "Other providers"))
         rows = []
-        for k, r in sorted(P.items(), key=lambda kv: kv[1]["scenarios"]["right_sized"]["monthly_eur"]["total"]):
+        def order(kv):
+            sc = kv[1]["scenarios"]
+            fits = all(x.get("fits", True) for x in sc.values())
+            return (not fits, sc["right_sized"]["monthly_eur"]["total"])
+        for k, r in sorted(P.items(), key=order):
             rs, lf = r["scenarios"]["right_sized"], r["scenarios"]["like_for_like"]
             locs = r.get("locations") or []
             loc_txt = ", ".join(locs[:3]) + (f" and {len(locs) - 3} more" if len(locs) > 3 else "")
+            if not (lf.get("fits", True) and rs.get("fits", True)):
+                rows.append([r["name"], loc_txt, "no server fits", "no server fits", "n/a"])
+                continue
             rows.append([r["name"] + (" (used above)" if k == pk else ""), loc_txt,
                          eur(lf["monthly_eur"]["total"]), eur(rs["monthly_eur"]["total"]),
                          pct(rs["saving_pct"]) if rs["saving_pct"] and rs["saving_pct"] > 0 else "none"])
         b.append(("table", ["Provider", "Locations", "Like-for-like", "Right-sized", "Saving (right-sized)"], rows,
                   [False, False, True, True, True]))
-        notes = [f"{r['name']}: {r['pricing_caveat']}" for k, r in P.items() if r.get("pricing_caveat")]
+        notes = [f"{r['name']} (prices checked {nice_date(r.get('prices_checked') or plan.get('catalogue_as_of'))}): "
+                 f"{r['pricing_caveat']}" for k, r in P.items() if r.get("pricing_caveat")]
         if notes:
             b.append(("ul", notes))
 
@@ -331,8 +341,11 @@ def build(plan, client, sector, provider_key):
         "Kubernetes, much of this effort exists today.",
         f"{A['contingency'] * 100:.0f}% contingency on bare-metal costs. Setup fees are spread over {A['horizon_months']} months "
         "when comparing server models.",
-        f"US dollar bills are converted at 1 USD = {A['fx_usd_eur']} EUR." if (inp.get("currency") or "").upper() == "USD" else
-        f"Bill currency: {inp.get('currency')}.",
+        (f"US dollar bills are converted at 1 USD = {A['fx_usd_eur']} EUR" if (inp.get("currency") or "").upper() == "USD" else
+         f"Bill currency: {inp.get('currency')}") +
+        (f" (ECB reference rate, {nice_date(plan['fx_as_of'])})" if plan.get("fx_as_of") else "") +
+        ("; providers that price in US dollars are converted at the same rate." if any(
+            "US dollars" in (r.get("pricing_caveat") or "") for r in P.values()) else "."),
     ]))
     flags = [f["text"] for f in plan.get("flags", []) if f.get("provider") in (None, pk)]
     if sector == "financial":

@@ -36,8 +36,8 @@
 |---|---|---|
 | `period_hours` | yes | Hours in the billing period (730 for an average month). Used to turn hours into average running instances. |
 | `months_covered` | yes | `period_hours / 730`. Costs are divided by this to get a monthly figure. |
-| `currency` | yes | ISO code of the bill: USD, EUR, GBP. |
-| `input_kind` | no | `aws`, `azure`, `gcp`, `focus`, `summary`, `invoice_pdf`, `manual`. Used in the report wording. |
+| `currency` | yes | ISO code of the bill: EUR, USD, GBP, or another currency the catalogue's `fx` block lists (CHF, JPY, CNY, SEK...). |
+| `input_kind` | no | `aws`, `azure`, `gcp`, `oci`, `ibm`, `focus`, `summary`, `invoice_pdf`, `manual`. Used in the report wording. |
 | `period_start`, `period_end` | no | ISO dates; end may be exclusive. |
 | `credits` | no | Negative; reported, not counted. |
 | `detail_level` | no | `usage` or `service`. |
@@ -50,10 +50,11 @@
 | `category` | yes | One of the categories below. Decides what happens to the line. |
 | `cost` | yes | Cost for the whole period, in `meta.currency`, before tax. Negative for discounts and credits. |
 | `service` | no | Provider service name. Dispositions can target it by name. |
-| `cloud` | no | `aws`, `azure`, `gcp`; helps the instance decoder. |
-| `instance_type` | no | e.g. `m6i.2xlarge`, `db.r6g.xlarge`, `Standard_D8s_v5`, `n2-standard-8`. Decoded into vCPU/RAM/GPU. |
+| `cloud` | no | `aws`, `azure`, `gcp`, `oci`, `ibm`, `alibaba`; helps the instance decoder. |
+| `instance_type` | no | e.g. `m6i.2xlarge`, `db.r6g.xlarge`, `Standard_D8s_v5`, `n2-standard-8`, `bx2-4x16` (IBM VPC), `ecs.g7.xlarge` (Alibaba). Decoded into vCPU/RAM/GPU. |
 | `usage_hours` | no | Instance hours in the period (count × hours). |
-| `vcpu_hours`, `ram_gb_hours` | no | Use instead of instance type when the bill gives cores and memory (GCP, Fargate, Azure vCore). |
+| `vcpu_hours`, `ram_gb_hours` | no | Use instead of instance type when the bill gives cores and memory (GCP, OCI, Fargate, Azure vCore, IBM Cloud Databases). OCI OCPUs are converted to vCPUs first: 2 per OCPU on x86 and Ampere A2/A4, 1 on Ampere A1. |
+| `series` | no | Machine series when there is no instance type: GCP (`n2`, `t2a`) or OCI (`oci-e4`, `oci-a1`). Sets SMT and the generation factor. |
 | `gpu_hours`, `gpu_model` | no | `gpu_model` from: T4, A10G, L4, L40S, V100, A100-40, A100-80, H100, H200, B200. |
 | `storage_gb_month` | no | GB-months for the period (= average GB × months). |
 | `transfer_gb` | no | GB transferred in the period. |

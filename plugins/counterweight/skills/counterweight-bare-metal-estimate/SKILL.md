@@ -1,11 +1,11 @@
 ---
 name: counterweight-bare-metal-estimate
-description: Turn an existing AWS, Azure or Google Cloud bill into an indicative bare-metal plan from Counterweight - which dedicated servers (Hetzner, OVHcloud, Leaseweb) would replace the workloads, what they would cost each month, the likely saving after operations effort, one-off costs, and what should stay in the cloud. Use it whenever someone shares a cloud invoice, Cost and Usage Report, Azure cost export, GCP billing export or FOCUS file and asks what bare metal or dedicated servers would cost, whether to repatriate or leave the cloud, how much they could save on their cloud bill, or wants an exit or migration estimate, even if they never say "bare metal". Produces a client-ready report in Markdown and branded HTML. Runs offline from a dated price catalogue; refreshes prices when web access is available.
+description: Turn an existing AWS, Azure, Google Cloud, Oracle Cloud (OCI), IBM Cloud or Alibaba Cloud bill into an indicative bare-metal plan from Counterweight - which dedicated servers (Hetzner, OVHcloud, Scaleway, and on request Leaseweb, Cherry Servers, Latitude.sh, phoenixNAP, Teraswitch, Vultr) would replace the workloads, what they would cost each month, the likely saving after operations effort, one-off costs, and what should stay in the cloud. Use it whenever someone shares a cloud invoice, Cost and Usage Report, Azure cost export, GCP billing export, OCI cost report, IBM Cloud usage CSV or FOCUS file and asks what bare metal or dedicated servers would cost, whether to repatriate or leave the cloud, how much they could save on their cloud bill, or wants an exit or migration estimate, even if they never say "bare metal". Produces a client-ready report in Markdown and branded HTML. Runs offline from a dated price catalogue; refreshes prices when web access is available.
 license: Apache-2.0 (code and docs); the Counterweight name and logo are not licensed. See LICENSE.txt
 compatibility: Needs Python 3.9+ (standard library only) and the ability to run scripts. Web access is optional, used only to refresh prices and exchange rates.
 metadata:
   author: "Counterweight (Unicorn Operations Ltd)"
-  version: "1.0.1"
+  version: "1.1.0"
   website: "https://counterweight.ie"
   catalogue-as-of: "2026-10-19"
 ---
@@ -30,8 +30,8 @@ The output is an **indicative estimate**, a range not a quote. Its value is that
 
 Ask what they can share, and accept whatever they have. In order of usefulness:
 
-1. A **FOCUS** export, **AWS Cost and Usage Report** (legacy or CUR 2.0), **Azure cost details export** (amortised preferred), or **Google Cloud billing export** as CSV for one full month (three months is better). These carry usage quantities, so sizing is resource-based.
-2. A console **CSV download** of the bill by service and usage type (AWS Bills page, Azure Cost analysis, GCP Cost table). Partly quantity-based.
+1. A **FOCUS** export, **AWS Cost and Usage Report** (legacy or CUR 2.0), **Azure cost details export** (amortised preferred), **Google Cloud billing export**, **OCI cost report** (or OCI's FOCUS report), or **IBM Cloud usage CSV** ("Instances", or the "Summary" export) for one full month (three months is better). These carry usage quantities, so sizing is resource-based. Alibaba Cloud's FOCUS export is accepted too, but it carries no quantities, so it sizes like an invoice.
+2. A console **CSV download** of the bill by service and usage type (AWS Bills page, Azure Cost analysis, GCP Cost table, OCI Cost Analysis). Partly quantity-based.
 3. A **PDF invoice**. Service-level only; sizing falls back to cost-implied capacity and the confidence drops.
 
 If they don't know how to get these, read `references/reading-bills.md` and give them the short version for their cloud. If they want an answer now, start with whatever they have and say what a better export would add.
@@ -44,7 +44,9 @@ Also ask, in one message and only if not already clear: the company or client na
 python3 scripts/ingest.py BILL.csv [MORE.csv ...] -o estate.json
 ```
 
-It detects the format, classifies every line into a category, decodes instance types into vCPU/RAM/GPU, and prints a summary (period, total, cost by category, unclassified spend). Run with `--help` for options (`--format`, `--cloud` for summary files, `--period-hours`, `--currency`).
+It detects the format (AWS, Azure, GCP, OCI, IBM Cloud, FOCUS from any cloud, or a service summary), classifies every line into a category, decodes instance types and OCI's OCPU series into vCPU/RAM/GPU, and prints a summary (period, total, cost by category, unclassified spend). Run with `--help` for options (`--format`, `--cloud` for summary files, `--period-hours`, `--currency`).
+
+Alibaba Cloud's own bill-details CSVs are not parsed: Alibaba does not document their exact headers. Ask for its FOCUS export, or treat the bill like a PDF invoice (below).
 
 Then check the summary:
 
@@ -59,12 +61,12 @@ Then check the summary:
 
 The catalogue at `assets/catalogue.json` is dated (`as_of`). If you have web access and the catalogue is more than about 60 days old, or the person asks for current prices, refresh it following `references/refreshing-prices.md`. Without web access, use it as it is and say the date in your summary.
 
-Exchange rate: bills in USD or GBP are converted at the catalogue's ECB rate. With web access, look up today's ECB reference rate and pass `--fx-usd-eur` (EUR per USD).
+Exchange rate: bills in USD, GBP and the other currencies in the catalogue's `fx` block (CHF, the Nordic and Central European currencies, JPY, CNY, INR, SGD, AUD, CAD) are converted at its dated ECB rate. With web access, look up today's ECB reference rate and pass `--fx-usd-eur` (EUR per USD). Providers that price in US dollars are converted at the same catalogue rate.
 
 ### 4. Estimate
 
 ```bash
-python3 scripts/estimate.py estate.json -o plan.json [--providers hetzner,ovhcloud,leaseweb]
+python3 scripts/estimate.py estate.json -o plan.json [--providers default,cherryservers | all]
   [--cpu-util 0.5] [--ops-fte 0.5] [--assumptions assumptions.json]
 ```
 
@@ -81,7 +83,8 @@ Use what the person told you:
 - Known utilisation: `--cpu-util` = p95 CPU / 100 × 1.25; average only: average / 100 × 2. Keep it between 0.3 and 1.0.
 - Their own platform team will absorb the work: pass `--ops-fte` with their estimate, or `0` with a clear note.
 - Things they want kept in the cloud, or moved that default to retained: an `assumptions.json` with `"dispositions": {"cdn": "migrate", "AmazonDynamoDB": "retain"}` (keys are categories or service names). See `assets/assumptions.example.json`.
-- Data residency: pass `--providers` to limit to providers with suitable locations.
+- Providers: Hetzner, OVHcloud and Scaleway are priced by default. Leaseweb, Cherry Servers, Latitude.sh, phoenixNAP, Teraswitch and Vultr are opt-in (`--providers default,teraswitch`, or `all`): each has a gap, listed in its `pricing_caveat` and in `references/refreshing-prices.md`, that stops it driving a headline unasked. The recommended provider is the cheapest right-sized total among those with EU or UK locations whose servers can hold the largest workload.
+- Data residency: pass `--providers` to limit to providers with suitable locations. Their locations are in the report.
 
 **Sanity-check plan.json before reporting** (the checklist in `references/sizing-method.md`): server utilisation figures, the binding constraint per pool, whether the largest single instance fit, GPU matches, and the flags. If a number looks wrong, it probably is: find out why rather than smoothing it over.
 
@@ -115,8 +118,8 @@ Follow `references/report-voice.md` for wording: numbers before adjectives, euro
 
 | Path | What it is |
 |---|---|
-| `scripts/ingest.py` | Bill → `estate.json` (AWS CUR/CUR 2.0, Azure, GCP, FOCUS, service summaries) |
-| `scripts/specs.py` | Instance-type decoder for AWS, Azure and GCP (also a CLI: `python3 scripts/specs.py m6i.2xlarge`) |
+| `scripts/ingest.py` | Bill → `estate.json` (AWS CUR/CUR 2.0, Azure, GCP, OCI, IBM Cloud, FOCUS, service summaries) |
+| `scripts/specs.py` | Instance-type decoder for AWS, Azure, GCP, IBM Cloud VPC and Alibaba ECS, plus OCI's OCPU series (also a CLI: `python3 scripts/specs.py m6i.2xlarge`) |
 | `scripts/estimate.py` | `estate.json` + catalogue → `plan.json` (sizing and pricing) |
 | `scripts/report.py` | `plan.json` → `report.md` and branded `report.html` |
 | `assets/catalogue.json` | Dated bare-metal price catalogue and exchange rates |

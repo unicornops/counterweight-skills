@@ -5,7 +5,7 @@ engineering practice. They run in your own AI assistant, on files you give it.
 
 | Skill | What it does |
 |---|---|
-| [`counterweight-bare-metal-estimate`](plugins/counterweight/skills/counterweight-bare-metal-estimate/SKILL.md) | **Price your exit.** Turns an AWS, Azure or Google Cloud bill into an indicative bare-metal plan: named Hetzner and OVHcloud servers, monthly euros, the saving with and without operations effort, one-off costs, and what should stay in the cloud. Writes a report in Markdown and branded HTML. [Sample report](https://counterweight.ie/sample-estimate). |
+| [`counterweight-bare-metal-estimate`](plugins/counterweight/skills/counterweight-bare-metal-estimate/SKILL.md) | **Price your exit.** Turns an AWS, Azure, Google Cloud, Oracle Cloud, IBM Cloud or Alibaba Cloud bill into an indicative bare-metal plan: named Hetzner, OVHcloud and Scaleway servers (Leaseweb, Cherry Servers, Latitude.sh, phoenixNAP, Teraswitch and Vultr on request), monthly euros, the saving with and without operations effort, one-off costs, and what should stay in the cloud. Writes a report in Markdown and branded HTML. [Sample report](https://counterweight.ie/sample-estimate). |
 
 ## Install
 

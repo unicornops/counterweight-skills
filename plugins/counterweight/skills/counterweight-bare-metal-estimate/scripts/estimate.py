@@ -3,7 +3,7 @@
 
 Usage:
   python3 estimate.py estate.json -o plan.json [--catalogue ../assets/catalogue.json]
-        [--fx-usd-eur 0.86] [--providers hetzner,ovhcloud,leaseweb]
+        [--fx-usd-eur 0.89] [--providers default,teraswitch | all]
         [--cpu-util 0.6] [--ram-util 0.9] [--ops-fte 0.5] [--ops-fte-cost 110000]
         [--assumptions assumptions.json]
 
@@ -34,7 +34,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from specs import decode, GEN_FACTOR, NO_SMT_THREAD_EQUIV, GPU_MEM  # noqa: E402
+from specs import decode, oci_traits, GEN_FACTOR, NO_SMT_THREAD_EQUIV, GPU_MEM  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_CATALOGUE = os.path.join(HERE, "..", "assets", "catalogue.json")
@@ -93,7 +93,7 @@ DEFAULTS = {
     "ops_fte_cost_eur": 110000,  # fully loaded annual cost of one senior platform engineer (Ireland)
     "contingency": 0.10,
     "parallel_run_months": 2,    # months of running both estates during migration
-    "providers": None,           # list; default all in catalogue
+    "providers": None,           # list of catalogue keys; default: those with default_enabled. "all" or "default" expand
     "allow_limited": False,      # use limited-stock / promo server configs
 }
 
@@ -167,6 +167,7 @@ def item_demand(it, meta, A):
     avg_ram = rh / hours
     smt = True
     gen = None
+    arch = (spec or {}).get("arch", "x86_64")
     burst_like = burst_right = 1.0
     if spec:
         smt = spec["smt"]
@@ -176,6 +177,11 @@ def item_demand(it, meta, A):
             burst_right = max(A["burst_floor_right"], spec["baseline_fraction"])
     else:
         series = (it.get("series") or "").lower()
+        if series.startswith("oci-"):
+            _per, oci_smt, oci_gen = oci_traits(series[4:])
+            smt, gen = oci_smt, GEN_FACTOR[oci_gen]
+            arch = "x86_64" if oci_smt else "arm64"
+            series = ""
         if series in ("t2a", "c4a", "t2d"):
             smt = False
         if series in ("n1", "f1", "g1"):
@@ -201,6 +207,8 @@ def item_demand(it, meta, A):
     if spec and spec["gpu_count"] and it.get("usage_hours"):
         gpus = max(gpus, it["usage_hours"] * spec["gpu_count"] / hours)
     gpu_model = it.get("gpu_model") or (spec or {}).get("gpu_model")
+    if gpus and not basis:
+        basis = "usage"  # GPU hours billed per GPU (GCP, OCI) are usage data too
     if cat == "gpu" and not gpus and may_imply and cost_usd_m > 0 and gpu_model in REF_USD["gpu_hour"]:
         gpus = cost_usd_m / (REF_USD["gpu_hour"][gpu_model] * 730)
         basis = basis or "cost_implied"
@@ -223,7 +231,7 @@ def item_demand(it, meta, A):
         "unit_threads": unit_t, "unit_ram": unit_r, "gpus": gpus, "gpu_model": gpu_model,
         "unit_gpus": (spec or {}).get("gpu_count", 0) or 0,
         "gpu_mem_gb": (spec or {}).get("gpu_mem_gb"), "storage_gb": gb, "transfer_gb_month": tgb,
-        "arch": (spec or {}).get("arch", "x86_64"), "smt": smt, "gen_factor": gen,
+        "arch": arch, "smt": smt, "gen_factor": gen,
     }
 
 
@@ -315,6 +323,24 @@ def pack_gpu(servers, gpu_demand, A):
 # ---------------------------------------------------------------------------
 # Main estimate
 # ---------------------------------------------------------------------------
+
+def select_providers(catalogue, wanted=None):
+    """Catalogue keys to price: the default-enabled ones unless a list is given.
+
+    The list may contain "default" (the default-enabled providers) and "all" (every provider in the catalogue),
+    e.g. ["default", "leaseweb"]. Unknown keys are kept so the estimate can flag them.
+    """
+    cat = catalogue["providers"]
+    defaults = [k for k, v in cat.items() if v.get("default_enabled", True)]
+    if not wanted:
+        return defaults
+    out = []
+    for w in wanted:
+        for k in (list(cat) if w == "all" else defaults if w == "default" else [w]):
+            if k not in out:
+                out.append(k)
+    return out
+
 
 def estimate(estate, catalogue, A):
     meta = estate["meta"]
@@ -429,7 +455,7 @@ def estimate(estate, catalogue, A):
             elif pool == "data":
                 engines.add(cat)
         if cat in ("database_storage", "search_storage", "cache_storage"):
-            rep = A["db_replicas"] if cat == "database_storage" else 1
+            rep = A["db_replicas"] if cat == "database_storage" and not it.get("replicas_included") else 1
             # local NVMe, one copy per replica (the replica is the redundancy, as with cloud disks), plus growth
             pools["data"]["nvme_gb"] += dem["storage_gb"] * rep * (1 + A["growth_headroom"])
             storage["data_gb"] += dem["storage_gb"]
@@ -481,18 +507,24 @@ def estimate(estate, catalogue, A):
         "backup_target_tb": round(backup_tb, 2),
     }
 
-    providers = A["providers"] or [k for k, v in catalogue["providers"].items() if v.get("default_enabled", True)]
+    providers = select_providers(catalogue, A["providers"])
     results = {}
     for pk in providers:
         P = catalogue["providers"].get(pk)
         if not P:
             flags.append({"level": "warn", "text": f"Provider '{pk}' is not in the catalogue; skipped."})
             continue
+        if P.get("eu_uk_locations") is False:
+            flags.append({"level": "warn", "provider": pk,
+                          "text": f"{P['name']} has no data centres in the EU or UK ({', '.join(P.get('locations') or [])}). "
+                                  "Its figures are for comparison only where data must stay in Europe."})
         servers = [s for s in P["servers"] if s.get("monthly_eur")
                    and (A["allow_limited"] or s.get("availability", "standard") != "limited")]
         general = [s for s in servers if not s.get("gpu") and "storage" not in s.get("role", [])]
         storage_srv = [s for s in servers if not s.get("gpu")]
         res = {"name": P["name"], "locations": P.get("locations"), "scenarios": {},
+               "prices_checked": P.get("prices_checked") or catalogue.get("as_of"),
+               "default_enabled": P.get("default_enabled", True), "eu_uk_locations": P.get("eu_uk_locations"),
                "unverified_prices": any(not x.get("verified", True) for x in P["servers"])}
         res["pricing_caveat"] = P.get("pricing_caveat")
         A["_per_server_overhead"] = P.get("per_server_monthly_eur", 0.0) + \
@@ -530,6 +562,7 @@ def estimate(estate, catalogue, A):
                 return sum(p["monthly_eur"] + p["setup_eur"] / A["horizon_months"] + p["count"] * A["_per_server_overhead"]
                            for p in ps)
             best_layout, best_picks = None, None
+            fits = True
             for name, ps in options:
                 full = ps + ([data_pick] if data_pick else [])
                 if (dp[t_key] or dp_nvme) and not data_pick:
@@ -540,10 +573,13 @@ def estimate(estate, catalogue, A):
                 best_layout, best_picks = "consolidated", [cons]
             if best_picks is None:
                 best_picks, best_layout = [], "none"
-                if ap[t_key] or dp[t_key]:
-                    flags.append({"level": "warn", "text": f"{P['name']}: no catalogue server is large enough for the "
-                                  f"largest single workload ({max(ap['unit_t'], dp['unit_t']):.0f} threads / "
-                                  f"{max(ap['unit_r'], dp['unit_r']):.0f} GB). Add larger configs to the catalogue."})
+                if ap[t_key] or dp[t_key] or sh_raw or dp_nvme:
+                    fits = False
+                    flags.append({"level": "warn", "provider": pk,
+                                  "text": f"{P['name']}: no catalogue server is large enough for the largest single "
+                                          f"workload ({max(ap['unit_t'], dp['unit_t']):.0f} threads / "
+                                          f"{max(ap['unit_r'], dp['unit_r']):.0f} GB), so its figures leave that capacity "
+                                          "out and are not comparable. Add larger configs to the catalogue."})
             picks.extend(best_picks)
             gpicks, unmatched = pack_gpu(servers, gpu_demand, A)
             picks.extend(gpicks)
@@ -556,24 +592,39 @@ def estimate(estate, catalogue, A):
             n_servers = sum(p["count"] for p in picks)
             servers_m = sum(p["monthly_eur"] for p in picks)
             setup = sum(p["setup_eur"] for p in picks)
-            # object storage
+            # object storage (a provider without S3-compatible storage in Europe borrows another provider's price)
             obj = P.get("object_storage") or {}
+            bk = P.get("backup_storage") or {}
+            fb_key = (catalogue.get("object_storage_fallback") or {}).get("provider")
+            fb = catalogue["providers"].get(fb_key) or {}
             obj_tb = storage["object_gb"] / 1024 * (1 + A["growth_headroom"])
+            stand_in = []
+            if obj_tb > 0 and not obj and fb.get("object_storage"):
+                obj = fb["object_storage"]
+                stand_in.append("object storage")
+            if backup_tb > 0 and not bk and fb.get("backup_storage"):
+                bk = fb["backup_storage"]
+                stand_in.append("off-site backups")
+            if stand_in and scen == "like_for_like":
+                flags.append({"level": "info", "provider": pk,
+                              "text": f"{P['name']} sells no S3-compatible object storage in Europe; its {' and '.join(stand_in)} "
+                                      f"are priced at {fb['name']}'s rate as a stand-in."})
             obj_m = 0.0
             if obj_tb > 0 and obj:
                 obj_m = obj.get("base_monthly_eur", 0) + max(0.0, obj_tb - obj.get("included_tb", 0)) * obj["eur_per_tb_month"]
             # backup
-            bk = P.get("backup_storage") or {}
             bk_m = backup_tb * bk.get("eur_per_tb_month", 0) if backup_tb > 0 else 0.0
             if backup_tb > 0 and bk.get("min_monthly_eur"):
                 bk_m = max(bk_m, bk["min_monthly_eur"])
             # traffic
             tr = P.get("traffic") or {}
             inc = tr.get("included_tb_per_server")
+            pool = tr.get("included_tb_pool")  # allowance shared by the whole account or location
             egress_tb = egress_gb / 1024
             tr_m = 0.0
-            if inc is not None and egress_tb > 0:
-                tr_m = max(0.0, egress_tb - inc * max(1, n_servers)) * tr.get("overage_eur_per_tb", 1.0)
+            if (inc is not None or pool is not None) and egress_tb > 0:
+                allowance = (inc or 0) * max(1, n_servers) + (pool or 0)
+                tr_m = max(0.0, egress_tb - allowance) * tr.get("overage_eur_per_tb", 1.0)
             port_mbps = tr.get("port_gbps", 1) * 1000
             peak_mbps = demand_summary["egress_avg_mbps"] * 3  # assume peak ~3x average
             uplink_m = 0.0
@@ -607,7 +658,7 @@ def estimate(estate, catalogue, A):
             parallel = A["parallel_run_months"] * (infra)
             one_off = setup + parallel
             res["scenarios"][scen] = {
-                "layout": best_layout, "servers": picks, "server_count": n_servers,
+                "layout": best_layout, "fits": fits, "servers": picks, "server_count": n_servers,
                 "monthly_eur": {
                     "servers": round(servers_m, 2), "object_storage": round(obj_m, 2), "backup_storage": round(bk_m, 2),
                     "traffic_overage": round(tr_m, 2), "uplinks": round(uplink_m, 2), "load_balancers": round(lb_m, 2),
@@ -626,9 +677,12 @@ def estimate(estate, catalogue, A):
             }
         results[pk] = res
 
-    # recommended provider: cheapest right-sized total
+    # recommended provider: cheapest right-sized total, among providers with EU or UK locations when there are any
+    # and among providers whose catalogue can hold the largest workload
     rec = None
-    for pk, r in results.items():
+    fit = {pk: r for pk, r in results.items() if all(sc["fits"] for sc in r["scenarios"].values())} or results
+    eu = {pk: r for pk, r in fit.items() if catalogue["providers"][pk].get("eu_uk_locations") is not False}
+    for pk, r in (eu or fit).items():
         t = r["scenarios"]["right_sized"]["monthly_eur"]["total"]
         if rec is None or t < results[rec]["scenarios"]["right_sized"]["monthly_eur"]["total"]:
             rec = pk
@@ -683,10 +737,18 @@ def estimate(estate, catalogue, A):
     total_data_gb = storage["object_gb"] + primary_data_gb
     exit_list_eur = total_data_gb * REF_USD["gb_transfer"]["egress"] * A["fx_usd_eur"]
 
+    seen_flags, unique = set(), []
+    for f in flags:
+        if f["text"] not in seen_flags:
+            seen_flags.add(f["text"])
+            unique.append(f)
+    flags = unique
+
     return {
         "schema": "counterweight.plan/1",
         "generated": dt.datetime.now().isoformat(timespec="seconds"),
         "catalogue_as_of": catalogue.get("as_of"),
+        "fx_as_of": (catalogue.get("fx") or {}).get("as_of"),
         "input": {"period_start": meta.get("period_start"), "period_end": meta.get("period_end"),
                   "months_covered": months, "currency": currency, "input_kind": meta.get("input_kind"),
                   "cost_basis": meta.get("cost_basis"), "detail_level": meta.get("detail_level"),
@@ -724,7 +786,8 @@ def main(argv=None):
     ap.add_argument("--assumptions", help="JSON file overriding any default in DEFAULTS, plus 'dispositions'")
     ap.add_argument("--fx-usd-eur", type=float)
     ap.add_argument("--fx-gbp-eur", type=float)
-    ap.add_argument("--providers", help="comma-separated catalogue keys")
+    ap.add_argument("--providers", help="comma-separated catalogue keys; 'default' = the default set, 'all' = every "
+                                        "provider (e.g. default,leaseweb)")
     ap.add_argument("--cpu-util", type=float, help="right-sized CPU factor (e.g. measured p95 / 100 * 1.25)")
     ap.add_argument("--ram-util", type=float)
     ap.add_argument("--ops-fte", type=float, help="incremental operations FTE (overrides the computed value)")

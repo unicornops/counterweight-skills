@@ -11,7 +11,7 @@
     {
       "name": "counterweight",
       "source": "./plugins/counterweight",
-      "description": "Counterweight's skills, starting with counterweight-bare-metal-estimate: turn an AWS, Azure or Google Cloud bill into an indicative bare-metal plan and a branded report."
+      "description": "Counterweight's skills, starting with counterweight-bare-metal-estimate: turn an AWS, Azure, Google Cloud, Oracle Cloud, IBM Cloud or Alibaba Cloud bill into an indicative bare-metal plan and a branded report."
     }
   ]
 }

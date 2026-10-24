@@ -6,13 +6,26 @@
  "notes": [
   "nvme_gb is usable capacity after RAID1 mirroring (how servers ship); nvme_raw_gb is the raw total, used for software-replicated storage (Ceph/Longhorn).",
   "Prices change often (Hetzner changed prices four times in 2026). Refresh before quoting; see references/refreshing-prices.md.",
-  "Object storage is priced single-site for every provider so the comparison is like for like; cloud standard tiers (S3, Blob ZRS, GCS) span zones."
+  "Object storage is priced single-site for every provider so the comparison is like for like; cloud standard tiers (S3, Blob ZRS, GCS) span zones.",
+  "Each provider records when its prices were checked (prices_checked). Prices listed in USD are converted at fx.USD_EUR; the original figure is kept in list_price."
  ],
  "fx": {
-  "USD_EUR": 0.8909,
-  "GBP_EUR": 1.1876,
-  "as_of": "2026-10-19",
-  "source": "ECB euro reference rates, 19 October 2026 (1 EUR = 1.1225 USD = 0.84205 GBP)"
+  "USD_EUR": 0.8934,
+  "GBP_EUR": 1.1943,
+  "CHF_EUR": 1.0838,
+  "DKK_EUR": 0.133783,
+  "SEK_EUR": 0.089839,
+  "NOK_EUR": 0.095543,
+  "PLN_EUR": 0.227557,
+  "CZK_EUR": 0.041107,
+  "JPY_EUR": 0.005698,
+  "CNY_EUR": 0.133941,
+  "INR_EUR": 0.00941,
+  "SGD_EUR": 0.6988,
+  "AUD_EUR": 0.6274,
+  "CAD_EUR": 0.6384,
+  "as_of": "2026-10-23",
+  "source": "ECB euro reference rates, 23 October 2026 (1 EUR = 1.1193 USD = 0.83728 GBP); https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
  },
  "providers": {
   "hetzner": {
@@ -490,7 +503,9 @@
     }
    ],
    "default_enabled": true,
-   "pricing_caveat": "Fixed configurations since June 2026; some GPU and object-storage prices are read from Hetzner's price API or third-party trackers and are marked unverified."
+   "pricing_caveat": "Fixed configurations since June 2026; some GPU and object-storage prices are read from Hetzner's price API or third-party trackers and are marked unverified.",
+   "eu_uk_locations": true,
+   "prices_checked": "2026-10-19"
   },
   "ovhcloud": {
    "name": "OVHcloud",
@@ -668,7 +683,310 @@
      "note": "RAM options to 3 TB in the configurator (prices not catalogued)"
     }
    ],
-   "pricing_caveat": "Priced at base configurations (32-128 GB RAM, 2 NVMe drives). Scale servers take up to 3 TB RAM and 6 x 15.36 TB NVMe, but OVHcloud publishes upgrade prices only in its configurator, so memory- or storage-heavy estates need more servers here than a configured quote would. Treat these OVHcloud figures as an upper bound."
+   "pricing_caveat": "Priced at base configurations (32-128 GB RAM, 2 NVMe drives). Scale servers take up to 3 TB RAM and 6 x 15.36 TB NVMe, but OVHcloud publishes upgrade prices only in its configurator, so memory- or storage-heavy estates need more servers here than a configured quote would. Treat these OVHcloud figures as an upper bound.",
+   "eu_uk_locations": true,
+   "prices_checked": "2026-10-19"
+  },
+  "scaleway": {
+   "name": "Scaleway",
+   "default_enabled": true,
+   "eu_uk_locations": true,
+   "locations": [
+    "Paris FR",
+    "Amsterdam NL",
+    "Warsaw PL"
+   ],
+   "prices_checked": "2026-10-24",
+   "billing": "Elastic Metal, monthly or hourly; monthly orders of most ranges carry a one-off commitment fee equal to one month (counted here as setup); the newer B-series 'E' models have none. Same price in every zone.",
+   "per_server_monthly_eur": 19.99,
+   "per_server_note": "Private Network up to 10 Gbps for Elastic Metal, \u20ac19.99/mo per server. One public IPv4 included.",
+   "traffic": {
+    "port_gbps": 1,
+    "included_tb_per_server": null,
+    "overage_eur_per_tb": 0.0,
+    "uplink_10g_monthly_eur": 449.99,
+    "notes": "Unmetered public traffic on the included port (1 Gbps on EM-I, 3 Gbps on B-series E models); 10 Gbps public bandwidth option \u20ac449.99/mo."
+   },
+   "private_network": {
+    "monthly_eur": 19.99,
+    "notes": "Per server, up to 10 Gbps, unmetered (in per_server_monthly_eur)."
+   },
+   "object_storage": {
+    "base_monthly_eur": 0.0,
+    "included_tb": 0,
+    "eur_per_tb_month": 8.22,
+    "egress_eur_per_tb": 10.0,
+    "verified": true,
+    "source": "https://www.scaleway.com/en/pricing/storage/",
+    "notes": "Standard One Zone \u20ac0.000011/GB/hour (\u20ac0.00803/GB/month) = \u20ac8.22/TiB; 75 GB egress free a month, then \u20ac0.01/GB. Multi-AZ is twice the price."
+   },
+   "backup_storage": {
+    "eur_per_tb_month": 8.22,
+    "product": "Object Storage, Standard One Zone, in another region",
+    "verified": true
+   },
+   "load_balancer": {
+    "monthly_eur": 16.79,
+    "product": "LB-S, \u20ac0.023/hour",
+    "verified": true
+   },
+   "pricing_caveat": "Scaleway does not publish stock levels, the 128 GB B-series models are Paris-only, and Iridium (EM-I) monthly orders carry a one-month commitment fee, counted here as setup.",
+   "servers": [
+    {
+     "model": "EM-B230E-NVMe-128G",
+     "cpu": "AMD EPYC 4345P",
+     "cores": 8,
+     "threads": 16,
+     "ram_gb": 128,
+     "nvme_gb": 1020,
+     "nvme_raw_gb": 2040,
+     "hdd_tb": 0,
+     "monthly_eur": 149.99,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "verified": true,
+     "note": "Paris only; no commitment fee"
+    },
+    {
+     "model": "EM-B330E-NVMe-128G",
+     "cpu": "AMD EPYC 4465P",
+     "cores": 12,
+     "threads": 24,
+     "ram_gb": 128,
+     "nvme_gb": 2050,
+     "nvme_raw_gb": 4100,
+     "hdd_tb": 0,
+     "monthly_eur": 189.99,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "verified": true,
+     "note": "Paris only; no commitment fee"
+    },
+    {
+     "model": "EM-B430E-NVMe-128G",
+     "cpu": "AMD EPYC 4545P",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 128,
+     "nvme_gb": 3840,
+     "nvme_raw_gb": 7680,
+     "hdd_tb": 0,
+     "monthly_eur": 229.99,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "verified": true,
+     "note": "Paris only; no commitment fee"
+    },
+    {
+     "model": "EM-I220E-NVMe",
+     "cpu": "AMD EPYC 8124P (Siena)",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 128,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 229.99,
+     "setup_eur": 229.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "verified": true
+    },
+    {
+     "model": "EM-I320E-NVMe",
+     "cpu": "AMD EPYC 8224P (Siena)",
+     "cores": 24,
+     "threads": 48,
+     "ram_gb": 192,
+     "nvme_gb": 1920,
+     "nvme_raw_gb": 3840,
+     "hdd_tb": 0,
+     "monthly_eur": 349.99,
+     "setup_eur": 349.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "verified": true
+    },
+    {
+     "model": "EM-I420E-NVMe",
+     "cpu": "AMD EPYC 8324P (Siena)",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 256,
+     "nvme_gb": 1920,
+     "nvme_raw_gb": 3840,
+     "hdd_tb": 0,
+     "monthly_eur": 449.99,
+     "setup_eur": 449.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "verified": true
+    },
+    {
+     "model": "EM-I520E-NVMe",
+     "cpu": "AMD EPYC 8434P (Siena)",
+     "cores": 48,
+     "threads": 96,
+     "ram_gb": 384,
+     "nvme_gb": 3840,
+     "nvme_raw_gb": 7680,
+     "hdd_tb": 0,
+     "monthly_eur": 569.99,
+     "setup_eur": 569.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "verified": true
+    },
+    {
+     "model": "EM-I620E-NVMe",
+     "cpu": "AMD EPYC 8534P (Siena)",
+     "cores": 64,
+     "threads": 128,
+     "ram_gb": 576,
+     "nvme_gb": 3840,
+     "nvme_raw_gb": 7680,
+     "hdd_tb": 0,
+     "monthly_eur": 679.99,
+     "setup_eur": 679.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "verified": true
+    },
+    {
+     "model": "EM-I525E-NVMe",
+     "cpu": "AMD EPYC 8434P (Siena)",
+     "cores": 48,
+     "threads": 96,
+     "ram_gb": 384,
+     "nvme_gb": 15360,
+     "nvme_raw_gb": 30720,
+     "hdd_tb": 0,
+     "monthly_eur": 1049.99,
+     "setup_eur": 1049.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "verified": true,
+     "note": "4 x 7.68 TB NVMe"
+    },
+    {
+     "model": "EM-T210E-NVMe",
+     "cpu": "AMD EPYC 7742 (Rome)",
+     "cores": 128,
+     "threads": 256,
+     "ram_gb": 2048,
+     "nvme_gb": 3840,
+     "nvme_raw_gb": 7680,
+     "hdd_tb": 0,
+     "monthly_eur": 2625.99,
+     "setup_eur": 2625.99,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "verified": true,
+     "note": "Paris 2 only; 2 TB RAM for very large single workloads"
+    },
+    {
+     "model": "EM-L110X-SATA",
+     "cpu": "Intel Xeon E5 1410 v2",
+     "cores": 4,
+     "threads": 8,
+     "ram_gb": 96,
+     "nvme_gb": 0,
+     "nvme_raw_gb": 0,
+     "hdd_tb": 48,
+     "monthly_eur": 131.99,
+     "setup_eur": 131.99,
+     "role": [
+      "storage"
+     ],
+     "availability": "standard",
+     "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "verified": true,
+     "note": "4 x 12 TB HDD; older CPU, for a storage tier only"
+    },
+    {
+     "model": "EM-T220E-L40S",
+     "cpu": "AMD EPYC 9334",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 256,
+     "nvme_gb": 3840,
+     "nvme_raw_gb": 7680,
+     "hdd_tb": 0,
+     "monthly_eur": 1499.99,
+     "setup_eur": 1499.99,
+     "role": [
+      "gpu"
+     ],
+     "availability": "standard",
+     "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "verified": true,
+     "gpu": {
+      "model": "L40S",
+      "name": "NVIDIA L40S",
+      "mem_gb": 48,
+      "count": 2
+     },
+     "note": "Paris 2 only"
+    },
+    {
+     "model": "EM-T620E-H100",
+     "cpu": "AMD EPYC 9334",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 512,
+     "nvme_gb": 7680,
+     "nvme_raw_gb": 15360,
+     "hdd_tb": 0,
+     "monthly_eur": 3499.99,
+     "setup_eur": 3499.99,
+     "role": [
+      "gpu"
+     ],
+     "availability": "standard",
+     "source": "https://api.scaleway.com/product-catalog/v2alpha1/public-catalog/products?product_types=elastic_metal",
+     "verified": true,
+     "gpu": {
+      "model": "H100",
+      "name": "NVIDIA H100 80 GB",
+      "mem_gb": 80,
+      "count": 2
+     },
+     "note": "Paris 2 only"
+    }
+   ]
   },
   "leaseweb": {
    "name": "Leaseweb",
@@ -835,7 +1153,1159 @@
      "note": "Frankfurt; GPU form factor and count unverified"
     }
    ],
-   "pricing_caveat": "Opt-in (--providers ...,leaseweb): VAT basis, setup fees and port speeds are not stated in Leaseweb's shop data; most stock is SATA SSD, not NVMe."
+   "pricing_caveat": "Opt-in (--providers ...,leaseweb): VAT basis, setup fees and port speeds are not stated in Leaseweb's shop data; most stock is SATA SSD, not NVMe.",
+   "eu_uk_locations": true,
+   "prices_checked": "2026-10-19"
+  },
+  "cherryservers": {
+   "name": "Cherry Servers",
+   "default_enabled": false,
+   "eu_uk_locations": true,
+   "locations": [
+    "Siauliai LT",
+    "Amsterdam NL",
+    "Frankfurt DE",
+    "Stockholm SE"
+   ],
+   "prices_checked": "2026-10-24",
+   "billing": "Monthly (or hourly, about 25% dearer); no setup fee; same list price in every EU location.",
+   "per_server_monthly_eur": 0.0,
+   "traffic": {
+    "port_gbps": 3,
+    "included_tb_per_server": 100,
+    "overage_eur_per_tb": 0.5,
+    "notes": "100 TB a month per server, pooled per project; extra traffic \u20ac0.50/TB. Ports 3 or 10 Gbps."
+   },
+   "private_network": {
+    "monthly_eur": 0,
+    "notes": "Included."
+   },
+   "object_storage": null,
+   "backup_storage": null,
+   "load_balancer": {
+    "monthly_eur": 14.6,
+    "product": "Managed load balancer from \u20ac0.02/hour",
+    "verified": true
+   },
+   "pricing_caveat": "Opt-in: stock is thin (most large models showed none in any EU location on 24 October 2026; those are marked limited), there is no UK site and no S3-compatible object storage. An Autumn Sale was running; list prices are used.",
+   "servers": [
+    {
+     "model": "amd-ryzen-9950x",
+     "cpu": "AMD Ryzen 9 9950X",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 128,
+     "nvme_gb": 1000,
+     "nvme_raw_gb": 2000,
+     "hdd_tb": 0,
+     "monthly_eur": 349.0,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.cherryservers.com/v1/plans",
+     "verified": true
+    },
+    {
+     "model": "amd-epyc-9254p",
+     "cpu": "AMD EPYC 9254P",
+     "cores": 24,
+     "threads": 48,
+     "ram_gb": 192,
+     "nvme_gb": 1000,
+     "nvme_raw_gb": 2000,
+     "hdd_tb": 0,
+     "monthly_eur": 409.0,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.cherryservers.com/v1/plans",
+     "verified": true
+    },
+    {
+     "model": "amd-epyc-9355",
+     "cpu": "AMD EPYC 9355",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 192,
+     "nvme_gb": 1000,
+     "nvme_raw_gb": 2000,
+     "hdd_tb": 0,
+     "monthly_eur": 599.0,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.cherryservers.com/v1/plans",
+     "verified": true
+    },
+    {
+     "model": "amd-epyc-9275f",
+     "cpu": "AMD EPYC 9275F",
+     "cores": 24,
+     "threads": 48,
+     "ram_gb": 384,
+     "nvme_gb": 3000,
+     "nvme_raw_gb": 6000,
+     "hdd_tb": 0,
+     "monthly_eur": 879.0,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.cherryservers.com/v1/plans",
+     "verified": true,
+     "note": "2 x 1 TB + 2 x 2 TB NVMe"
+    },
+    {
+     "model": "amd-epyc-9375F",
+     "cpu": "AMD EPYC 9375F",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 384,
+     "nvme_gb": 5000,
+     "nvme_raw_gb": 10000,
+     "hdd_tb": 0,
+     "monthly_eur": 989.0,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.cherryservers.com/v1/plans",
+     "verified": true,
+     "note": "2 x 1 TB + 2 x 4 TB NVMe"
+    },
+    {
+     "model": "amd-threadripper-pro-7975wx",
+     "cpu": "AMD Threadripper PRO 7975WX",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 768,
+     "nvme_gb": 5000,
+     "nvme_raw_gb": 10000,
+     "hdd_tb": 0,
+     "monthly_eur": 1249.0,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.cherryservers.com/v1/plans",
+     "verified": true,
+     "note": "2 x 1 TB + 2 x 4 TB NVMe"
+    },
+    {
+     "model": "amd-epyc-9575F",
+     "cpu": "AMD EPYC 9575F",
+     "cores": 64,
+     "threads": 128,
+     "ram_gb": 384,
+     "nvme_gb": 4000,
+     "nvme_raw_gb": 8000,
+     "hdd_tb": 0,
+     "monthly_eur": 1351.0,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.cherryservers.com/v1/plans",
+     "verified": true,
+     "note": "2 x 1 TB + 2 x 3 TB NVMe"
+    },
+    {
+     "model": "amd-epyc-9554p",
+     "cpu": "AMD EPYC 9554P",
+     "cores": 64,
+     "threads": 128,
+     "ram_gb": 384,
+     "nvme_gb": 1000,
+     "nvme_raw_gb": 2000,
+     "hdd_tb": 0,
+     "monthly_eur": 739.0,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "limited",
+     "source": "https://api.cherryservers.com/v1/plans",
+     "verified": true,
+     "note": "No EU stock when checked"
+    },
+    {
+     "model": "amd-epyc-9654",
+     "cpu": "AMD EPYC 9654P",
+     "cores": 96,
+     "threads": 192,
+     "ram_gb": 768,
+     "nvme_gb": 4000,
+     "nvme_raw_gb": 8000,
+     "hdd_tb": 0,
+     "monthly_eur": 999.0,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "limited",
+     "source": "https://api.cherryservers.com/v1/plans",
+     "verified": true,
+     "note": "No EU stock when checked"
+    },
+    {
+     "model": "amd-epyc-9754",
+     "cpu": "AMD EPYC 9754P",
+     "cores": 128,
+     "threads": 256,
+     "ram_gb": 1152,
+     "nvme_gb": 4000,
+     "nvme_raw_gb": 8000,
+     "hdd_tb": 0,
+     "monthly_eur": 1099.0,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "limited",
+     "source": "https://api.cherryservers.com/v1/plans",
+     "verified": true,
+     "note": "No EU stock when checked"
+    }
+   ]
+  },
+  "latitude": {
+   "name": "Latitude.sh",
+   "default_enabled": false,
+   "eu_uk_locations": true,
+   "locations": [
+    "Frankfurt DE",
+    "London UK",
+    "Amsterdam NL"
+   ],
+   "prices_checked": "2026-10-23",
+   "billing": "Monthly price (hourly on-demand is about twice as much; yearly prepay about 30% less); no setup fee. Prices in USD, the same in the US, UK, Germany and the Netherlands.",
+   "per_server_monthly_eur": 0.0,
+   "traffic": {
+    "port_gbps": 10,
+    "included_tb_per_server": 20,
+    "overage_eur_per_tb": 1.12,
+    "notes": "20 TB a month per server, pooled per country; extra in 10 TB packages at $1.25/TB (overage without a package $0.01/GB)."
+   },
+   "private_network": {
+    "monthly_eur": 0,
+    "notes": "Included."
+   },
+   "object_storage": {
+    "base_monthly_eur": 0.0,
+    "included_tb": 0,
+    "eur_per_tb_month": 7.78,
+    "egress_eur_per_tb": 0.0,
+    "verified": true,
+    "source": "https://www.latitude.sh/pricing/storage",
+    "notes": "Standard object storage $0.0085/GB-month, egress free; FRA, LON, AMS."
+   },
+   "backup_storage": {
+    "eur_per_tb_month": 7.78,
+    "product": "Object Storage (Standard)",
+    "verified": true
+   },
+   "load_balancer": {
+    "monthly_eur": 0.0,
+    "product": "None sold; HAProxy/keepalived on the cluster"
+   },
+   "pricing_caveat": "Opt-in: priced in US dollars (converted at the ECB rate), and its FAQ says taxes are included in the final price without saying whether list prices exclude VAT; Megaport has agreed to acquire it.",
+   "servers": [
+    {
+     "model": "f4.metal.small",
+     "cpu": "AMD EPYC 4484PX",
+     "cores": 12,
+     "threads": 24,
+     "ram_gb": 96,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 355.58,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://www.latitude.sh/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 398,
+      "currency": "USD",
+      "per": "month"
+     }
+    },
+    {
+     "model": "m4.metal.medium",
+     "cpu": "AMD EPYC 9124",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 128,
+     "nvme_gb": 1920,
+     "nvme_raw_gb": 3840,
+     "hdd_tb": 0,
+     "monthly_eur": 407.4,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://www.latitude.sh/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 456,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "2 x 480 GB boot + 2 x 1.9 TB NVMe"
+    },
+    {
+     "model": "s3.large.x86",
+     "cpu": "AMD EPYC 7443P",
+     "cores": 24,
+     "threads": 48,
+     "ram_gb": 512,
+     "nvme_gb": 3800,
+     "nvme_raw_gb": 7600,
+     "hdd_tb": 0,
+     "monthly_eur": 580.72,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://www.latitude.sh/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 650,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "London stock only"
+    },
+    {
+     "model": "m4.metal.large",
+     "cpu": "AMD EPYC 9254",
+     "cores": 24,
+     "threads": 48,
+     "ram_gb": 384,
+     "nvme_gb": 3800,
+     "nvme_raw_gb": 7600,
+     "hdd_tb": 0,
+     "monthly_eur": 1324.04,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://www.latitude.sh/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 1482,
+      "currency": "USD",
+      "per": "month"
+     }
+    },
+    {
+     "model": "rs4.metal.large",
+     "cpu": "AMD EPYC 9354P",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 768,
+     "nvme_gb": 8000,
+     "nvme_raw_gb": 16000,
+     "hdd_tb": 0,
+     "monthly_eur": 2100.42,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://www.latitude.sh/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 2351,
+      "currency": "USD",
+      "per": "month"
+     }
+    },
+    {
+     "model": "m4.metal.xlarge",
+     "cpu": "AMD EPYC 9455P",
+     "cores": 48,
+     "threads": 96,
+     "ram_gb": 768,
+     "nvme_gb": 3800,
+     "nvme_raw_gb": 7600,
+     "hdd_tb": 0,
+     "monthly_eur": 3104.62,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://www.latitude.sh/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 3475,
+      "currency": "USD",
+      "per": "month"
+     }
+    },
+    {
+     "model": "rs4.metal.xlarge",
+     "cpu": "AMD EPYC 9554P",
+     "cores": 64,
+     "threads": 128,
+     "ram_gb": 1536,
+     "nvme_gb": 16000,
+     "nvme_raw_gb": 32000,
+     "hdd_tb": 0,
+     "monthly_eur": 3547.75,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://www.latitude.sh/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 3971,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "4 x 8 TB NVMe"
+    },
+    {
+     "model": "c4.metal.large",
+     "cpu": "AMD EPYC 9655P",
+     "cores": 96,
+     "threads": 192,
+     "ram_gb": 384,
+     "nvme_gb": 3800,
+     "nvme_raw_gb": 7600,
+     "hdd_tb": 0,
+     "monthly_eur": 2608.77,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "limited",
+     "source": "https://www.latitude.sh/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 2920,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "Out of stock everywhere when checked"
+    }
+   ]
+  },
+  "phoenixnap": {
+   "name": "phoenixNAP",
+   "default_enabled": false,
+   "eu_uk_locations": true,
+   "locations": [
+    "Amsterdam NL",
+    "Phoenix US",
+    "Ashburn US",
+    "Chicago US",
+    "Seattle US",
+    "Singapore"
+   ],
+   "prices_checked": "2026-10-24",
+   "billing": "Bare Metal Cloud: hourly, or reserved for 1, 12, 24 or 36 months. Priced here at the 1-month reservation (hourly x 730 is dearer). USD, excluding tax; same price in every location; no setup fee.",
+   "per_server_monthly_eur": 0.0,
+   "fixed_monthly_eur": 18.26,
+   "fixed_note": "A /29 public IPv4 allocation ($0.028/hour) for the cluster.",
+   "traffic": {
+    "port_gbps": 25,
+    "included_tb_per_server": null,
+    "included_tb_pool": 15,
+    "overage_eur_per_tb": 1.47,
+    "notes": "15 TB a month free per location, shared by all servers; more at the 30 TB monthly package rate ($49.50 in Amsterdam), or $0.01/GB metered."
+   },
+   "private_network": {
+    "monthly_eur": 0,
+    "notes": "Included."
+   },
+   "object_storage": null,
+   "backup_storage": null,
+   "load_balancer": {
+    "monthly_eur": 0.0,
+    "product": "None sold; HAProxy/keepalived on the cluster"
+   },
+   "pricing_caveat": "Opt-in: one European site (Amsterdam), no UK, priced in US dollars, and its S3-compatible object storage is US-only.",
+   "servers": [
+    {
+     "model": "s2.c2.large",
+     "cpu": "Intel Xeon E-2388G",
+     "cores": 8,
+     "threads": 16,
+     "ram_gb": 128,
+     "nvme_gb": 1000,
+     "nvme_raw_gb": 2000,
+     "hdd_tb": 0,
+     "monthly_eur": 168.6,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.phoenixnap.com/billing/v1/products",
+     "verified": true,
+     "list_price": {
+      "amount": 188.71,
+      "currency": "USD",
+      "per": "month"
+     }
+    },
+    {
+     "model": "s4.c6.large",
+     "cpu": "AMD EPYC 4565P",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 192,
+     "nvme_gb": 2000,
+     "nvme_raw_gb": 4000,
+     "hdd_tb": 0,
+     "monthly_eur": 433.0,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.phoenixnap.com/billing/v1/products",
+     "verified": true,
+     "list_price": {
+      "amount": 484.66,
+      "currency": "USD",
+      "per": "month"
+     }
+    },
+    {
+     "model": "d3.c3.large",
+     "cpu": "2 x Intel Xeon Gold 6542Y",
+     "cores": 48,
+     "threads": 96,
+     "ram_gb": 256,
+     "nvme_gb": 2000,
+     "nvme_raw_gb": 4000,
+     "hdd_tb": 0,
+     "monthly_eur": 850.17,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.phoenixnap.com/billing/v1/products",
+     "verified": true,
+     "list_price": {
+      "amount": 951.59,
+      "currency": "USD",
+      "per": "month"
+     }
+    },
+    {
+     "model": "d3.m4.xxlarge",
+     "cpu": "2 x Intel Xeon Gold 5418Y",
+     "cores": 48,
+     "threads": 96,
+     "ram_gb": 1024,
+     "nvme_gb": 4000,
+     "nvme_raw_gb": 8000,
+     "hdd_tb": 0,
+     "monthly_eur": 1264.36,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.phoenixnap.com/billing/v1/products",
+     "verified": true,
+     "list_price": {
+      "amount": 1415.2,
+      "currency": "USD",
+      "per": "month"
+     }
+    },
+    {
+     "model": "d3.m6.xxlarge",
+     "cpu": "2 x Intel Xeon Platinum 8452Y",
+     "cores": 72,
+     "threads": 144,
+     "ram_gb": 1024,
+     "nvme_gb": 4000,
+     "nvme_raw_gb": 8000,
+     "hdd_tb": 0,
+     "monthly_eur": 1474.31,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.phoenixnap.com/billing/v1/products",
+     "verified": true,
+     "list_price": {
+      "amount": 1650.2,
+      "currency": "USD",
+      "per": "month"
+     }
+    },
+    {
+     "model": "s4.x6.m6.xlarge",
+     "cpu": "Intel Xeon 6731E (E-cores, no SMT)",
+     "cores": 96,
+     "threads": 96,
+     "ram_gb": 512,
+     "nvme_gb": 4000,
+     "nvme_raw_gb": 8000,
+     "hdd_tb": 0,
+     "monthly_eur": 1644.95,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.phoenixnap.com/billing/v1/products",
+     "verified": true,
+     "list_price": {
+      "amount": 1841.19,
+      "currency": "USD",
+      "per": "month"
+     }
+    },
+    {
+     "model": "s5.x6.m9.xlarge",
+     "cpu": "Intel Xeon 6770P",
+     "cores": 64,
+     "threads": 128,
+     "ram_gb": 512,
+     "nvme_gb": 4000,
+     "nvme_raw_gb": 8000,
+     "hdd_tb": 0,
+     "monthly_eur": 1886.23,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.phoenixnap.com/billing/v1/products",
+     "verified": true,
+     "list_price": {
+      "amount": 2111.26,
+      "currency": "USD",
+      "per": "month"
+     }
+    }
+   ]
+  },
+  "teraswitch": {
+   "name": "Teraswitch",
+   "default_enabled": false,
+   "eu_uk_locations": true,
+   "locations": [
+    "Amsterdam NL",
+    "Frankfurt DE",
+    "London UK",
+    "Dublin IE",
+    "Paris FR",
+    "Stockholm SE",
+    "Dallas US",
+    "Pittsburgh US"
+   ],
+   "prices_checked": "2026-10-23",
+   "billing": "Hourly up to the monthly price, month to month; no setup fee. USD; Europe and North America priced the same. Memory and drives are configurable at published add-on prices.",
+   "per_server_monthly_eur": 0.0,
+   "traffic": {
+    "port_gbps": 25,
+    "included_tb_per_server": null,
+    "included_tb_pool": 150,
+    "overage_eur_per_tb": 1.12,
+    "notes": "150 TB a month per region group (taken here as shared by the account, the cautious reading); prepaid traffic $1.25/TB, overage $10/TB."
+   },
+   "private_network": {
+    "monthly_eur": 0,
+    "notes": "Included."
+   },
+   "object_storage": null,
+   "backup_storage": null,
+   "load_balancer": {
+    "monthly_eur": 0.0,
+    "product": "Not yet sold ('Soon'); HAProxy/keepalived on the cluster"
+   },
+   "pricing_caveat": "Opt-in: priced in US dollars with VAT treatment unstated, European bare-metal stock is not visible without an account, object storage is not yet sold, and configured servers are base price plus published memory and drive options.",
+   "servers": [
+    {
+     "model": "7313P-64",
+     "cpu": "AMD EPYC 7313P (Milan)",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 64,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 158.13,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://teraswitch.com/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 177,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "2 x 960 GB NVMe"
+    },
+    {
+     "model": "7313P-256",
+     "cpu": "AMD EPYC 7313P (Milan)",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 256,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 238.54,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://teraswitch.com/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 267,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "base $177 + 256 GB $90"
+    },
+    {
+     "model": "9950X-128",
+     "cpu": "AMD Ryzen 9 9950X",
+     "cores": 16,
+     "threads": 32,
+     "ram_gb": 128,
+     "nvme_gb": 1920,
+     "nvme_raw_gb": 3840,
+     "hdd_tb": 0,
+     "monthly_eur": 379.7,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://teraswitch.com/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 425,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "2 x 1.92 TB NVMe"
+    },
+    {
+     "model": "7443P-128",
+     "cpu": "AMD EPYC 7443P (Milan)",
+     "cores": 24,
+     "threads": 48,
+     "ram_gb": 128,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 205.49,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://teraswitch.com/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 230,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "2 x 960 GB NVMe"
+    },
+    {
+     "model": "7543P-512",
+     "cpu": "AMD EPYC 7543P (Milan)",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 512,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 402.04,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://teraswitch.com/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 450,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "base $270 + 512 GB $180"
+    },
+    {
+     "model": "7543P-1024",
+     "cpu": "AMD EPYC 7543P (Milan)",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 1024,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 616.46,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://teraswitch.com/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 690,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "base $270 + 1 TB $420"
+    },
+    {
+     "model": "9254-384",
+     "cpu": "AMD EPYC 9254 (Genoa)",
+     "cores": 24,
+     "threads": 48,
+     "ram_gb": 384,
+     "nvme_gb": 3840,
+     "nvme_raw_gb": 7680,
+     "hdd_tb": 0,
+     "monthly_eur": 705.8,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://teraswitch.com/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 790,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "base $460 + 384 GB $200 + 2 x 3.84 TB NVMe $65 each"
+    },
+    {
+     "model": "9554P-512",
+     "cpu": "AMD EPYC 9554P (Genoa)",
+     "cores": 64,
+     "threads": 128,
+     "ram_gb": 512,
+     "nvme_gb": 3840,
+     "nvme_raw_gb": 7680,
+     "hdd_tb": 0,
+     "monthly_eur": 978.29,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://teraswitch.com/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 1095,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "base $665 + 512 GB $300 + 2 x 3.84 TB NVMe $65 each"
+    },
+    {
+     "model": "9754-512",
+     "cpu": "AMD EPYC 9754 (Genoa)",
+     "cores": 128,
+     "threads": 256,
+     "ram_gb": 512,
+     "nvme_gb": 3840,
+     "nvme_raw_gb": 7680,
+     "hdd_tb": 0,
+     "monthly_eur": 1085.5,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://teraswitch.com/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 1215,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "base $785 + 512 GB $300 + 2 x 3.84 TB NVMe $65 each"
+    },
+    {
+     "model": "9754-1152",
+     "cpu": "AMD EPYC 9754 (Genoa)",
+     "cores": 128,
+     "threads": 256,
+     "ram_gb": 1152,
+     "nvme_gb": 3840,
+     "nvme_raw_gb": 7680,
+     "hdd_tb": 0,
+     "monthly_eur": 1532.21,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://teraswitch.com/pricing",
+     "verified": true,
+     "list_price": {
+      "amount": 1715,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "base $785 + 1152 GB $800 + 2 x 3.84 TB NVMe $65 each"
+    }
+   ]
+  },
+  "vultr": {
+   "name": "Vultr",
+   "default_enabled": false,
+   "eu_uk_locations": true,
+   "locations": [
+    "London UK",
+    "Manchester UK",
+    "Amsterdam NL",
+    "Frankfurt DE",
+    "Paris FR",
+    "Madrid ES",
+    "Warsaw PL",
+    "Milan IT",
+    "Stockholm SE"
+   ],
+   "prices_checked": "2026-10-24",
+   "billing": "Monthly price, billed hourly up to it; no setup fee. USD, excluding VAT.",
+   "per_server_monthly_eur": 0.0,
+   "traffic": {
+    "port_gbps": 10,
+    "included_tb_per_server": 10,
+    "included_tb_pool": 2,
+    "overage_eur_per_tb": 8.93,
+    "notes": "10 TB a month per bare-metal plan plus 2 TB per account, pooled; overage $0.01/GB. Port speed is not published."
+   },
+   "private_network": {
+    "monthly_eur": 0,
+    "notes": "VPC included."
+   },
+   "object_storage": {
+    "base_monthly_eur": 16.08,
+    "included_tb": 1,
+    "eur_per_tb_month": 16.47,
+    "verified": false,
+    "source": "https://docs.vultr.com/products/storage/object-storage",
+    "notes": "Standard tier $18/month including 1,000 GB; the $0.018/GB rate beyond that is from third-party listings. Clusters in Amsterdam, London and Milan."
+   },
+   "backup_storage": {
+    "eur_per_tb_month": 16.47,
+    "product": "Object Storage (Standard)",
+    "verified": false
+   },
+   "load_balancer": {
+    "monthly_eur": 8.93,
+    "product": "Load Balancer from $10/month",
+    "verified": true
+   },
+   "pricing_caveat": "Opt-in: priced in US dollars (converted at the ECB rate); its plans above 768 GB RAM and all GPU servers showed no deployable location when checked, so the largest workloads may not fit.",
+   "servers": [
+    {
+     "model": "vbm-6c-32gb-amd",
+     "cpu": "AMD EPYC 4245P",
+     "cores": 6,
+     "threads": 12,
+     "ram_gb": 32,
+     "nvme_gb": 960,
+     "nvme_raw_gb": 1920,
+     "hdd_tb": 0,
+     "monthly_eur": 263.56,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.vultr.com/v2/plans-metal",
+     "verified": true,
+     "list_price": {
+      "amount": 295,
+      "currency": "USD",
+      "per": "month"
+     }
+    },
+    {
+     "model": "vbm-8c-64gb-amd",
+     "cpu": "AMD EPYC 4345P",
+     "cores": 8,
+     "threads": 16,
+     "ram_gb": 64,
+     "nvme_gb": 1945,
+     "nvme_raw_gb": 3890,
+     "hdd_tb": 0,
+     "monthly_eur": 326.1,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.vultr.com/v2/plans-metal",
+     "verified": true,
+     "list_price": {
+      "amount": 365,
+      "currency": "USD",
+      "per": "month"
+     }
+    },
+    {
+     "model": "vbm-8c-132gb-v2",
+     "cpu": "Intel Xeon E-2388G",
+     "cores": 8,
+     "threads": 16,
+     "ram_gb": 128,
+     "nvme_gb": 1920,
+     "nvme_raw_gb": 3840,
+     "hdd_tb": 0,
+     "monthly_eur": 312.7,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.vultr.com/v2/plans-metal",
+     "verified": true,
+     "list_price": {
+      "amount": 350,
+      "currency": "USD",
+      "per": "month"
+     }
+    },
+    {
+     "model": "vbm-24c-256gb-amd",
+     "cpu": "AMD EPYC 7443P",
+     "cores": 24,
+     "threads": 48,
+     "ram_gb": 256,
+     "nvme_gb": 480,
+     "nvme_raw_gb": 960,
+     "hdd_tb": 0,
+     "monthly_eur": 647.73,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.vultr.com/v2/plans-metal",
+     "verified": true,
+     "list_price": {
+      "amount": 725,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "2 x 480 GB SATA SSD"
+    },
+    {
+     "model": "vbm-24c-384gb-amd",
+     "cpu": "AMD EPYC 9254",
+     "cores": 24,
+     "threads": 48,
+     "ram_gb": 384,
+     "nvme_gb": 480,
+     "nvme_raw_gb": 960,
+     "hdd_tb": 0,
+     "monthly_eur": 737.07,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.vultr.com/v2/plans-metal",
+     "verified": true,
+     "list_price": {
+      "amount": 825,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "2 x 480 GB SATA SSD"
+    },
+    {
+     "model": "vbm-32c-755gb-amd",
+     "cpu": "AMD EPYC 9354P",
+     "cores": 32,
+     "threads": 64,
+     "ram_gb": 768,
+     "nvme_gb": 480,
+     "nvme_raw_gb": 960,
+     "hdd_tb": 0,
+     "monthly_eur": 1295.45,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "standard",
+     "source": "https://api.vultr.com/v2/plans-metal",
+     "verified": true,
+     "list_price": {
+      "amount": 1450,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "2 x 480 GB SATA SSD; London and Madrid only"
+    },
+    {
+     "model": "vbm-64c-1536gb-amd",
+     "cpu": "2 x AMD EPYC 9354",
+     "cores": 64,
+     "threads": 128,
+     "ram_gb": 1536,
+     "nvme_gb": 480,
+     "nvme_raw_gb": 480,
+     "hdd_tb": 0,
+     "monthly_eur": 2613.24,
+     "setup_eur": 0.0,
+     "role": [
+      "general"
+     ],
+     "availability": "limited",
+     "source": "https://api.vultr.com/v2/plans-metal",
+     "verified": true,
+     "list_price": {
+      "amount": 2925,
+      "currency": "USD",
+      "per": "month"
+     },
+     "note": "No deployable location when checked"
+    }
+   ]
   }
+ },
+ "object_storage_fallback": {
+  "provider": "ovhcloud",
+  "note": "Providers that sell no S3-compatible object storage in Europe (Cherry Servers, phoenixNAP, Teraswitch) have their object storage and off-site backups priced at this provider's rate as a stand-in."
  }
 }

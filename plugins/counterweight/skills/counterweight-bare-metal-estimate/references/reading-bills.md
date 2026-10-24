@@ -4,8 +4,10 @@ What the estimate can do depends on what the bill contains. Quantities (instance
 
 | Input | Has quantities | Confidence | Time to get |
 |---|---|---|---|
-| FOCUS export (any cloud) | Yes | Highest | Hours (first delivery) |
-| AWS CUR / CUR 2.0, Azure cost details, GCP billing export | Yes | Highest | Hours, or already set up |
+| FOCUS export (AWS, Azure, GCP, OCI, IBM Cloud) | Yes | Highest | Hours (first delivery) |
+| AWS CUR / CUR 2.0, Azure cost details, GCP billing export, OCI cost report | Yes | Highest | Hours, or already set up |
+| IBM Cloud usage CSV (Instances or Summary) | Mostly | High | Minutes |
+| Alibaba Cloud FOCUS export (preview) | No | Low to medium | A few days (by invitation) |
 | Console CSV by service and usage type | Partly | Medium | Minutes |
 | PDF invoice | Rarely | Low to medium | Minutes |
 
@@ -56,6 +58,41 @@ Console menus move; describe these steps in general terms and let the person fin
 - Sustained- and committed-use discounts are credits in the export; the script keeps them in the baseline (they're real), and excludes promotional and free-trial credits.
 - Cloud SQL "Regional" SKUs are HA instances.
 
+## Oracle Cloud (OCI)
+
+**Best: Cost and Usage Reports.** Billing and Cost Management → Cost and Usage Reports. OCI writes two kinds to an Oracle-owned bucket, both CSV (gzipped), each file covering a few hours of usage: **cost reports** in OCI's own format (`lineItem/...`, `product/service`, `cost/myCost` columns) and **FOCUS reports** (`BilledCost`, `ServiceName`...), filed by year, month and day. Download every file for one month and pass them all to `ingest.py` in one call; it detects either format. Reports are kept for a year. The older usage reports were withdrawn in 2025 and are not needed.
+
+**Fast: Cost Analysis → download as CSV.** Service-level totals; pass with `--format summary --cloud oci`. Sizing will be cost-implied.
+
+**Things to know**
+
+- *OCPUs:* flexible shapes bill **OCPU-hours and memory GB-hours separately** per series ("Standard - E4", "Standard - E4 - Memory"), so there is no shape name to decode. On x86 one OCPU is two vCPUs; on Ampere A1 one OCPU is one Arm core, on A2 and A4 two cores. The script converts accordingly.
+- *Service codes:* `product/service` holds codes such as `COMPUTE`, `BLOCK_STORAGE`, `OBJECTSTORE`, `NETWORK`, `ORALB` (load balancers), `OKE_CONTROL_PLANE`, `ODSP` (Database with PostgreSQL), `OPENSEARCH`, `FILESTORAGESERVICE`. Services not in that list are classified from the SKU name in `product/description`.
+- *Block volume performance units* (VPUs) are billed per GB-month alongside the storage; they are a performance fee, not more disk.
+- *ECPUs* (Autonomous Database, MySQL HeatWave, Base Database) are an abstract unit; those lines are sized from their cost at list prices and marked cost-implied.
+- *Universal Credits:* `cost/myCost` is already at your contracted unit price, overage included. Corrections (`lineItem/isCorrection`) amend earlier lines and are kept.
+- OCI's first 10 TB of internet egress each month is free, and its compute is priced well below the other hyperscalers. Expect a smaller saving than from an AWS or Azure bill of the same size, and often none.
+
+## IBM Cloud
+
+**Best: the usage CSV.** Manage → Billing and usage → Usage → Export → CSV, choosing **Instances** (one row per instance and metric) for the month. The **Summary** export works too: its Account Resource Usage section has the same metrics aggregated per plan, and its Support Summary adds the support charge. Accounts can also deliver these daily to a Cloud Object Storage bucket. IBM's FOCUS export (Export → FOCUS) is read as FOCUS, but IBM does not document its unit values, so it sizes from cost.
+
+**Things to know**
+
+- The CSV starts with an Account Metadata block (owner, **Billing Month**, currency rate, version); the script reads the billing month from it and finds the usage table below. The version depends on the month: since January 2026 (v1.4.1) a **Profile** column carries the VPC instance profile.
+- *Profiles* decode directly: `bx2-4x16` is balanced, x86, generation 2, 4 vCPU and 16 GiB. Without the Profile column, worker flavours in the plan name (`16x64-shared-instance` for Kubernetes Service) are used; otherwise compute lines are sized from cost.
+- *Cost* is the pre-tax cost after discounts (`Usage Cost` in versions before 1.2). Rows marked **Non Chargeable** are informational and skipped.
+- *Classic infrastructure* rows have unit `CHARGE`: the quantity is money, not hours. Cores and RAM come from the metric name (`GUEST_CORES_4`, `RAM_8_GB`) and are taken as running all month.
+- *Databases for PostgreSQL / MySQL / Redis* bill every member's cores (`VIRTUAL_PROCESSOR_CORES`), RAM and disk (`GIGABYTE_MONTHS_RAM`, `GIGABYTE_MONTHS_DISK`), so replicas are already in the quantities.
+- `WINDOWS_VCPU_HOURS` and similar OS lines are licences, kept at cost and flagged. Cloud Object Storage **Cold Vault** counts as archive storage.
+- Subscription and offer credits appear only in the Summary export and are not counted.
+
+## Alibaba Cloud
+
+**Best: the FOCUS export** (Expenses and Costs → bill subscriptions, "Standard Bill FOCUS"), currently an invitation-only preview. Alibaba documents that its usage quantity, unit and SKU columns are always empty, so the estimate sizes everything from cost, like an invoice, and the confidence is low. Times are UTC.
+
+**Not supported:** the console Bill Details export and the OSS bill subscriptions (Billing Item Details, Instance Details, Split Bill). Alibaba documents their fields but not the exact header row, and its pages disagree on the name of the payable-amount column, so the script does not guess. If that is all the person has, read it like an invoice: one cost line per product with the right category, plus `instance_type` and `usage_hours` where an instance specification such as `ecs.g7.xlarge` and a duration are shown (`specs.py` decodes `ecs.` types in the c, g and r families). Use the pre-tax payable amount, after discounts and coupons.
+
 ## PDF invoices and screenshots
 
 Read the document and build `estate.json` yourself (`estate-schema.md`):
@@ -69,4 +106,4 @@ Expect "low" or "medium" confidence and tell the person that a usage export woul
 
 ## Several accounts or clouds
 
-Pass all files to one `ingest.py` call; items from different clouds sit side by side. If the files are in different currencies, run them separately or convert first: the estimate assumes one bill currency.
+Pass all files to one `ingest.py` call; items from different clouds sit side by side. If the files are in different currencies, run them separately or convert first: the estimate assumes one bill currency. Bills in currencies other than EUR, USD and GBP are converted at the catalogue's ECB rate when it lists one (`fx`); otherwise convert the amounts to euros first and pass `--currency EUR`.

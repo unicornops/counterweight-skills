@@ -51,9 +51,14 @@ claude plugin validate ./ && claude plugin validate ./plugins/counterweight
 
 - Each skill follows the [Agent Skills specification](https://agentskills.io/specification). Its frontmatter may
   use only `name`, `description`, `license`, `compatibility`, `metadata` and `allowed-tools`, because the Claude apps
-  reject anything else on upload. Keep `metadata.version` current.
-- A release is a tag `vX.Y.Z` matching `plugins/counterweight/.claude-plugin/plugin.json`. The release workflow tests,
-  packages every skill and attaches the zips to a GitHub release. Bump the plugin version whenever a skill changes.
+  reject anything else on upload.
+- Releases are automated with [release-please](https://github.com/googleapis/release-please). Use
+  [Conventional Commits](https://www.conventionalcommits.org) for PR titles (PRs are squash-merged): `fix:` makes a
+  patch release, `feat:` a minor one, and `feat!:` or a `BREAKING CHANGE:` footer a major one. Each merge to `main`
+  updates a release PR; merging that PR tags `vX.Y.Z`, writes the version into `plugin.json` and every skill's
+  `metadata.version`, updates `CHANGELOG.md`, and attaches a zip per skill to the GitHub release. Don't edit versions
+  by hand. A new skill's `SKILL.md` goes in `extra-files` in `release-please-config.json`, with
+  `version: "X.Y.Z" # x-release-please-version` in its metadata (a test checks both).
 - The bare-metal estimate's prices are dated (`assets/catalogue.json`); refresh them roughly every 60 days following
   its `references/refreshing-prices.md`.
 

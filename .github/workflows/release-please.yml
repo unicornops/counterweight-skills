@@ -1,0 +1,74 @@
+name: Release Please
+
+# Every push to main updates a release PR from the conventional commits since the last release. Merging that PR tags
+# vX.Y.Z, publishes the GitHub release and attaches one zip per skill, ready to upload to the Claude apps.
+# release-please writes the new version into plugin.json and each SKILL.md (release-please-config.json, extra-files).
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Existing release tag to rebuild and re-attach the skill zips for (e.g. v1.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    outputs:
+      releases_created: ${{ steps.release.outputs.releases_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  assets:
+    name: Attach the skill zips
+    needs: release-please
+    if: |
+      always() &&
+      (needs.release-please.outputs.releases_created == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || needs.release-please.outputs.tag_name }}
+    steps:
+      - name: Checkout the release
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Test
+        run: python3 -B -m unittest discover -s tests -v
+
+      - name: Check the tag matches the plugin version
+        run: |
+          version="$(python3 -c 'import json; print(json.load(open("plugins/counterweight/.claude-plugin/plugin.json"))["version"])')"
+          if [[ "$TAG" != "v$version" ]]; then
+            echo "::error::Tag $TAG does not match plugin.json version $version"
+            exit 1
+          fi
+
+      - name: Package the skills
+        run: python3 -B scripts/package.py
+
+      - name: Attach the zips to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" dist/*.zip --clobber

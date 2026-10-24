@@ -26,7 +26,7 @@ Keep it short; the report has the detail.
 
 Example:
 
-> Your September bill averages €30.8k/mo. Moving the parts that suit bare metal to Hetzner comes to €17.8k–€19.2k/mo, a saving of €11.6k–€13k/mo (38–42%) after allowing €5.1k–€5.3k/mo for the extra operations work. Most of it comes from egress (€4.0k/mo, included in Hetzner's server prices), the €3.1k/mo support plan, and compute and managed databases consolidated onto 8–9 servers. CloudFront, Glacier and DynamoDB stay as they are (€3.4k/mo). Confidence is medium-high: 90% of the sized spend came from usage data; measured CPU utilisation would narrow the range. A Teardown would firm this up in two weeks with read-only access: hello@counterweight.ie.
+> Your September bill averages €30.8k/mo. Moving the parts that suit bare metal to Hetzner comes to €17.8k–€19.2k/mo, a saving of €11.6k–€13k/mo (38–42%) after allowing €5.1k–€5.3k/mo for the extra operations work. Most of it comes from egress (€4.0k/mo, included in Hetzner's server prices), the €3.1k/mo support plan, and compute and managed databases consolidated onto 8–9 servers. CloudFront, Glacier and DynamoDB stay as they are (€3.4k/mo). Confidence is medium-high: 90% of the sized spend came from usage data; measured CPU utilisation would narrow the range. A Teardown, run by your team on read-only exports and reviewed by Counterweight, would firm this up in two weeks: hello@counterweight.ie.
 
 ## Things never to say
 

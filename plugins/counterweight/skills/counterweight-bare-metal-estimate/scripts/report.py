@@ -23,6 +23,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOGO = os.path.join(HERE, "..", "assets", "counterweight-lockup-ink.svg")
 FONTS = os.path.join(HERE, "..", "assets", "fonts")
+SKILL_MD = os.path.join(HERE, "..", "SKILL.md")
 # (family, file, weight range): embedded in report.html so it needs no font service and works offline.
 FONT_FACES = [
     ("Archivo", "archivo-latin-wdth-normal.woff2", "100 900"),
@@ -115,6 +116,14 @@ def pct(x):
 # Content model: a list of blocks, rendered to Markdown and HTML
 # ---------------------------------------------------------------------------
 
+def skill_version():
+    """The skill's metadata.version from SKILL.md, so every report says which version produced it."""
+    with open(SKILL_MD, encoding="utf-8") as f:
+        front = f.read().split("---")[1]
+    m = re.search(r'^\s+version: "([0-9]+\.[0-9]+\.[0-9]+)"', front, re.M)
+    return m.group(1) if m else None
+
+
 def build(plan, client, sector, provider_key):
     b = []
     P = plan["providers"]
@@ -130,7 +139,9 @@ def build(plan, client, sector, provider_key):
     b.append(("eyebrow", "Price your exit"))
     b.append(("h1", f"Indicative bare-metal estimate{(' for ' + client) if client else ''}"))
     kinds = " and ".join(KIND_LABEL.get(k, k) for k in (inp.get("input_kind") or [])) or "a cloud bill"
-    b.append(("meta", f"Prepared {today} from {kinds} covering {period}. "
+    version = skill_version()
+    b.append(("meta", f"Prepared {today}{(' with Price your exit ' + version) if version else ''} "
+                      f"from {kinds} covering {period}. "
                       f"Prices exclude VAT. {prov['name']} prices as of "
                       f"{nice_date(prov.get('prices_checked') or plan.get('catalogue_as_of'))}."))
 
@@ -360,9 +371,10 @@ def build(plan, client, sector, provider_key):
     b.append(("beam",))
     b.append(("eyebrow", "Teardown"))
     b.append(("h2", "Next step: book a Teardown"))
-    b.append(("p", "This estimate reads your bill. A Teardown reads your estate: two weeks, read-only access, measured "
-                   "utilisation instead of assumptions, and a costed plan you can take to procurement whether or not you "
-                   "hire us to carry it out. If your renewal is coming up, price your exit before you sign."))
+    b.append(("p", "This estimate reads your bill. A Teardown reads your estate: two weeks, run by your team with our "
+                   "skills on read-only exports you control, measured utilisation instead of assumptions, and a costed "
+                   "plan with our signed review that you can take to procurement, whether or not you hire us to coach "
+                   "your team through it. If your renewal is coming up, price your exit before you sign."))
     b.append(("cta", "Book a Teardown", "mailto:hello@counterweight.ie?subject=Teardown"))
     b.append(("meta", "Counterweight is a trading name of Unicorn Operations Limited, registered in Ireland, company "
                       "number 774973, registered office Mullen, Frenchpark, Ireland. counterweight.ie · hello@counterweight.ie. "

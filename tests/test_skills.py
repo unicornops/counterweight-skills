@@ -62,6 +62,19 @@ class SkillTest(unittest.TestCase):
         self.assertEqual(entry["source"], "./plugins/counterweight")
         self.assertEqual(plugin["license"], "Apache-2.0")
 
+    def test_release_please_versions_every_skill(self):
+        plugin = json.loads((PLUGIN / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+        config = json.loads((ROOT / "release-please-config.json").read_text(encoding="utf-8"))
+        extra = {f["path"] for f in config["packages"]["."]["extra-files"]}
+        self.assertIn("plugins/counterweight/.claude-plugin/plugin.json", extra)
+        for skill in SKILLS:
+            with self.subTest(skill=skill.name):
+                self.assertIn((skill / "SKILL.md").relative_to(ROOT).as_posix(), extra,
+                              "add the skill's SKILL.md to extra-files in release-please-config.json")
+                self.assertRegex((skill / "SKILL.md").read_text(encoding="utf-8"),
+                                 r'(?m)^  version: "' + re.escape(plugin["version"]) + r'" # x-release-please-version$',
+                                 "metadata.version must match plugin.json and carry release-please's marker")
+
     def test_package_is_one_folder_with_skill_md_on_top(self):
         for skill in SKILLS:
             with self.subTest(skill=skill.name), tempfile.TemporaryDirectory() as out:

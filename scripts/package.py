@@ -19,7 +19,8 @@ DIST = ROOT / "dist"
 
 def version(skill):
     front = (skill / "SKILL.md").read_text(encoding="utf-8").split("---")[1]
-    return re.search(r'^\s+version: "([0-9]+\.[0-9]+\.[0-9]+)"$', front, re.M).group(1)
+    # The line may end in release-please's "# x-release-please-version" marker.
+    return re.search(r'^\s+version: "([0-9]+\.[0-9]+\.[0-9]+)"(?:\s+#.*)?$', front, re.M).group(1)
 
 
 def files(skill):

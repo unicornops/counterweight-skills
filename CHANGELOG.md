@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/unicornops/counterweight-skills/compare/v1.2.0...v1.3.0) (2026-10-24)
+
+
+### Features
+
+* **bare-metal-estimate:** recommend only providers holding the ISO 27001 or SOC 2 the client needs ([#7](https://github.com/unicornops/counterweight-skills/issues/7)) ([b68b2ab](https://github.com/unicornops/counterweight-skills/commit/b68b2ab9da7c936d7124a9f47950dd80f69d9234))
+
 ## [1.2.0](https://github.com/unicornops/counterweight-skills/compare/v1.1.0...v1.2.0) (2026-10-24)
 
 

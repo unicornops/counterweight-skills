@@ -10,5 +10,16 @@
   "homepage": "https://counterweight.ie/price-your-exit",
   "repository": "https://github.com/unicornops/counterweight-skills",
   "license": "Apache-2.0",
-  "keywords": ["finops", "cloud-cost", "bare-metal", "aws", "azure", "gcp", "oci", "ibm-cloud", "alibaba-cloud", "repatriation"]
+  "keywords": [
+    "finops",
+    "cloud-cost",
+    "bare-metal",
+    "aws",
+    "azure",
+    "gcp",
+    "oci",
+    "ibm-cloud",
+    "alibaba-cloud",
+    "repatriation"
+  ]
 }

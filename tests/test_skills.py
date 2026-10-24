@@ -129,6 +129,13 @@ class BareMetalEstimateDemo(unittest.TestCase):
             with self.subTest(family=family):
                 self.assertIn(f'font-family:"{family}";src:url(data:font/woff2;base64,', self.html)
 
+    def test_report_records_the_skill_version_and_price_date(self):
+        version = json.loads((PLUGIN / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))["version"]
+        for report in (self.html, self.md):
+            with self.subTest(report=report[:20]):
+                self.assertIn(f"with Price your exit {version} from ", report)
+                self.assertRegex(report, r"prices as of \d{1,2} [A-Z][a-z]+ \d{4}")
+
     def test_report_names_the_company(self):
         for report in (self.html, self.md):
             self.assertIn("Unicorn Operations Limited, registered in Ireland, company number 774973", report)

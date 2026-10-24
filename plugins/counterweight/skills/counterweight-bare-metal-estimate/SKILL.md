@@ -5,7 +5,7 @@ license: Apache-2.0 (code and docs); the Counterweight name and logo are not lic
 compatibility: Needs Python 3.9+ (standard library only) and the ability to run scripts. Web access is optional, used only to refresh prices and exchange rates.
 metadata:
   author: "Counterweight (Unicorn Operations Ltd)"
-  version: "1.1.0" # x-release-please-version
+  version: "1.2.0" # x-release-please-version
   website: "https://counterweight.ie"
   catalogue-as-of: "2026-10-19"
 ---

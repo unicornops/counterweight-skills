@@ -48,6 +48,8 @@ CAT_LABEL = {
 }
 DISP_LABEL = {"migrate": "Moves to bare metal", "retain": "Stays as is", "eliminate": "Goes away",
               "baseline_only": "Discount (in your bill today)", "exclude": "Excluded"}
+CERT_LABEL = {"iso27001": "ISO 27001", "soc2": "SOC 2 Type II", "soc1": "SOC 1 Type II", "pci-dss": "PCI DSS",
+              "iso27017": "ISO 27017", "iso27018": "ISO 27018", "iso27701": "ISO 27701"}
 SCEN_LABEL = {"like_for_like": "Like-for-like", "right_sized": "Right-sized"}
 KIND_LABEL = {"aws": "an AWS Cost and Usage Report", "azure": "an Azure cost export", "gcp": "a Google Cloud billing export",
               "oci": "an Oracle Cloud cost report", "ibm": "an IBM Cloud usage export",
@@ -124,6 +126,48 @@ def skill_version():
     return m.group(1) if m else None
 
 
+def held_text(r):
+    """The certifications a provider holds for its bare-metal servers, for a table cell."""
+    return ", ".join(CERT_LABEL.get(k, k) for k in r.get("certifications") or {}) or "none recorded"
+
+
+def certification_paragraph(plan, pk, prov):
+    """What the featured provider holds, against what the client needs (or, if nothing was stated, what to ask)."""
+    comp = plan.get("compliance")
+    certs = prov.get("certifications") or {}
+    checked = nice_date(prov.get("certifications_checked")) if prov.get("certifications_checked") else None
+    parts = []
+    for k, c in certs.items():
+        where = c.get("locations")
+        where = "all its locations" if where in (None, "all") else ", ".join(where)
+        extra = f", valid to {nice_date(c['valid_until'])}" if c.get("valid_until") else ""
+        if c.get("evidence") == "announcement":
+            extra += ", announced but the report is not published"
+        parts.append(f"{CERT_LABEL.get(k, k)} ({where}{extra})")
+    held = (f"{prov['name']} holds " + "; ".join(parts) + " for its bare-metal servers") if parts else \
+        f"We could not confirm an ISO 27001 certificate or SOC 2 report covering {prov['name']}'s bare-metal servers"
+    held += f", checked {checked}." if checked else "."
+    if prov.get("certifications_note"):
+        held += " " + prov["certifications_note"]
+    if not comp:
+        return (held + " If your auditors, customers or regulator expect your hosting provider to hold ISO 27001 or a "
+                "SOC 2 Type II report, say so: the estimate then recommends only providers that do.")
+    need = comp["required_text"]
+    if prov.get("meets_requirements"):
+        locs = ", ".join(prov.get("certified_locations") or [])
+        text = (f"You need a provider with {need}. {held} Order in a certified location ({locs}), and before signing "
+                "ask for the current certificate with its scope, or the SOC 2 report under NDA, and check it names the "
+                "service and data centre you are buying.")
+    else:
+        text = f"**You need a provider with {need}, and {prov['name']} does not meet that.** {held}"
+        others = [plan["providers"][k]["name"] for k in comp["met_by"] if k != pk]
+        if others:
+            text += f" Providers in this estimate that do: {', '.join(others)}."
+    return (text + " Your own certification still counts: on bare metal your team runs the operating systems, access, "
+            "patching, logging and backups that a cloud provider partly ran for you, so those controls join your own "
+            "ISO 27001 or SOC 2 scope.")
+
+
 def build(plan, client, sector, provider_key):
     b = []
     P = plan["providers"]
@@ -181,6 +225,12 @@ def build(plan, client, sector, provider_key):
                  f"{eur(min(like['saving_with_one_fte_eur_month'], right['saving_with_one_fte_eur_month']), True)} to "
                  f"{eur(max(like['saving_with_one_fte_eur_month'], right['saving_with_one_fte_eur_month']), True)} a month.")
     b.append(("lead", lead))
+    comp = plan.get("compliance")
+    if comp and not prov.get("meets_requirements"):
+        b.append(("p", f"**{prov['name']} does not hold {comp['required_text']} for its bare-metal servers, which you "
+                       "need.** These figures are for comparison; see the proposed shape for what that changes."))
+    elif comp:
+        b.append(("p", f"{prov['name']} meets the certification you need for its bare-metal servers ({comp['required_text']})."))
     b.append(("p", f"Like-for-like ({eur(like['monthly_eur']['total'], True)}/mo) buys one modern server thread for every "
                    f"cloud vCPU, the same memory and the disk you provision today. Right-sized "
                    f"({eur(right['monthly_eur']['total'], True)}/mo) assumes typical utilisation, newer CPUs and the disk "
@@ -249,6 +299,7 @@ def build(plan, client, sector, provider_key):
                    f"service down.{gpu_note} Everything sits in one provider region, spread across its data-centre "
                    "buildings where the provider allows, with backups in a second location. A warm standby site for "
                    "disaster recovery is not priced."))
+    b.append(("p", certification_paragraph(plan, pk, prov)))
     b.append(("table", ["Pool", "Servers", "Each server", "Per month"], shape_rows(right), [False, False, False, True]))
     b.append(("p", f"Like-for-like ({like['layout']}, {like['server_count']} servers):"))
     b.append(("table", ["Pool", "Servers", "Each server", "Per month"], shape_rows(like), [False, False, False, True]))
@@ -280,6 +331,10 @@ def build(plan, client, sector, provider_key):
     # ---- providers
     if len(P) > 1:
         b.append(("h3", "Other providers"))
+        comp = plan.get("compliance")
+        if comp:
+            b.append(("p", f"Certified means the provider holds the certification for its bare-metal servers; you "
+                           f"need {comp['required_text']}."))
         rows = []
         def order(kv):
             sc = kv[1]["scenarios"]
@@ -289,14 +344,15 @@ def build(plan, client, sector, provider_key):
             rs, lf = r["scenarios"]["right_sized"], r["scenarios"]["like_for_like"]
             locs = r.get("locations") or []
             loc_txt = ", ".join(locs[:3]) + (f" and {len(locs) - 3} more" if len(locs) > 3 else "")
+            certified = held_text(r) + (" (does not meet)" if comp and not r.get("meets_requirements") else "")
             if not (lf.get("fits", True) and rs.get("fits", True)):
-                rows.append([r["name"], loc_txt, "no server fits", "no server fits", "n/a"])
+                rows.append([r["name"], loc_txt, certified, "no server fits", "no server fits", "n/a"])
                 continue
-            rows.append([r["name"] + (" (used above)" if k == pk else ""), loc_txt,
+            rows.append([r["name"] + (" (used above)" if k == pk else ""), loc_txt, certified,
                          eur(lf["monthly_eur"]["total"]), eur(rs["monthly_eur"]["total"]),
                          pct(rs["saving_pct"]) if rs["saving_pct"] and rs["saving_pct"] > 0 else "none"])
-        b.append(("table", ["Provider", "Locations", "Like-for-like", "Right-sized", "Saving (right-sized)"], rows,
-                  [False, False, True, True, True]))
+        b.append(("table", ["Provider", "Locations", "Certified", "Like-for-like", "Right-sized", "Saving (right-sized)"],
+                  rows, [False, False, False, True, True, True]))
         notes = [f"{r['name']} (prices checked {nice_date(r.get('prices_checked') or plan.get('catalogue_as_of'))}): "
                  f"{r['pricing_caveat']}" for k, r in P.items() if r.get("pricing_caveat")]
         if notes:

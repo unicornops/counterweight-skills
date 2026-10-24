@@ -505,7 +505,21 @@
    "default_enabled": true,
    "pricing_caveat": "Fixed configurations since June 2026; some GPU and object-storage prices are read from Hetzner's price API or third-party trackers and are marked unverified.",
    "eu_uk_locations": true,
-   "prices_checked": "2026-10-19"
+   "prices_checked": "2026-10-19",
+   "certifications_checked": "2026-10-24",
+   "certifications": {
+    "iso27001": {
+     "standard": "ISO/IEC 27001:2022",
+     "issuer": "SOCOTEC Certification Deutschland GmbH (DAkkS)",
+     "reference": "ZN-2025-35",
+     "valid_until": "2028-09-26",
+     "locations": "all",
+     "evidence": "certificate",
+     "scope": "Hetzner Online GmbH: \"all hosting services and the data centers\" at Nuremberg, Falkenstein and Tuusula (Helsinki).",
+     "source": "https://cdn.hetzner.com/assets/downloads/ISO-Certificate.pdf"
+    }
+   },
+   "certifications_note": "No SOC 2 report. Hetzner also publishes a BSI C5:2020 Type 2 attestation summary naming dedicated servers (report dated 17 November 2025)."
   },
   "ovhcloud": {
    "name": "OVHcloud",
@@ -685,7 +699,47 @@
    ],
    "pricing_caveat": "Priced at base configurations (32-128 GB RAM, 2 NVMe drives). Scale servers take up to 3 TB RAM and 6 x 15.36 TB NVMe, but OVHcloud publishes upgrade prices only in its configurator, so memory- or storage-heavy estates need more servers here than a configured quote would. Treat these OVHcloud figures as an upper bound.",
    "eu_uk_locations": true,
-   "prices_checked": "2026-10-19"
+   "prices_checked": "2026-10-19",
+   "certifications_checked": "2026-10-24",
+   "certifications": {
+    "iso27001": {
+     "standard": "ISO/IEC 27001:2022",
+     "issuer": "LNE",
+     "valid_until": "2027-02-03",
+     "locations": "all",
+     "evidence": "provider page",
+     "scope": "OVH Groupe: OVHcloud's ISO 27k product scope lists dedicated servers (\"Serveur d\u00e9di\u00e9\") and Bare Metal 3-AZ as certified; the certificate's sites are Roubaix, Gravelines, Strasbourg, Limburg (Frankfurt), Erith (London), Ozarow (Warsaw) and the Paris 3-AZ region.",
+     "source": "https://docs.ovhcloud.com/fr/guides/account-and-service-management/account-information/security-certifications"
+    },
+    "iso27017": {
+     "standard": "ISO/IEC 27017:2015",
+     "issuer": "LNE",
+     "valid_until": "2027-02-03",
+     "locations": "all",
+     "evidence": "provider page",
+     "scope": "OVH Groupe: OVHcloud's ISO 27k product scope lists dedicated servers (\"Serveur d\u00e9di\u00e9\") and Bare Metal 3-AZ as certified; the certificate's sites are Roubaix, Gravelines, Strasbourg, Limburg (Frankfurt), Erith (London), Ozarow (Warsaw) and the Paris 3-AZ region.",
+     "source": "https://docs.ovhcloud.com/fr/guides/account-and-service-management/account-information/security-certifications"
+    },
+    "iso27018": {
+     "standard": "ISO/IEC 27018:2019",
+     "issuer": "LNE",
+     "valid_until": "2027-02-03",
+     "locations": "all",
+     "evidence": "provider page",
+     "scope": "OVH Groupe: OVHcloud's ISO 27k product scope lists dedicated servers (\"Serveur d\u00e9di\u00e9\") and Bare Metal 3-AZ as certified; the certificate's sites are Roubaix, Gravelines, Strasbourg, Limburg (Frankfurt), Erith (London), Ozarow (Warsaw) and the Paris 3-AZ region.",
+     "source": "https://docs.ovhcloud.com/fr/guides/account-and-service-management/account-information/security-certifications"
+    },
+    "iso27701": {
+     "standard": "ISO/IEC 27701:2019",
+     "issuer": "LNE",
+     "valid_until": "2027-02-03",
+     "locations": "all",
+     "evidence": "provider page",
+     "scope": "OVH Groupe: OVHcloud's ISO 27k product scope lists dedicated servers (\"Serveur d\u00e9di\u00e9\") and Bare Metal 3-AZ as certified; the certificate's sites are Roubaix, Gravelines, Strasbourg, Limburg (Frankfurt), Erith (London), Ozarow (Warsaw) and the Paris 3-AZ region.",
+     "source": "https://docs.ovhcloud.com/fr/guides/account-and-service-management/account-information/security-certifications"
+    }
+   },
+   "certifications_note": "OVHcloud says it has SOC 1, 2 and 3 Type 2 reports but names no products or locations, and its bare-metal pages mention SOC 1-2 Type I; we found no SOC 2 Type II report confirmed for European dedicated servers, so ask for one. HDS (French health data) covers dedicated servers."
   },
   "scaleway": {
    "name": "Scaleway",
@@ -986,7 +1040,10 @@
      },
      "note": "Paris 2 only"
     }
-   ]
+   ],
+   "certifications_checked": "2026-10-24",
+   "certifications": {},
+   "certifications_note": "Scaleway holds ISO 27001:2022 (BSI, IS 787020, expiring 5 December 2026) for \"Scaleway's Public Cloud products\" at its Paris, Amsterdam and Warsaw sites, but the published certificate does not say Elastic Metal is included; ask for the current Statement of Applicability. No SOC 2 report. HDS covers Elastic Metal in France."
   },
   "leaseweb": {
    "name": "Leaseweb",
@@ -1155,7 +1212,38 @@
    ],
    "pricing_caveat": "Opt-in (--providers ...,leaseweb): VAT basis, setup fees and port speeds are not stated in Leaseweb's shop data; most stock is SATA SSD, not NVMe.",
    "eu_uk_locations": true,
-   "prices_checked": "2026-10-19"
+   "prices_checked": "2026-10-19",
+   "certifications_checked": "2026-10-24",
+   "certifications": {
+    "iso27001": {
+     "standard": "ISO/IEC 27001:2022",
+     "issuer": "EY CertifyPoint (RvA)",
+     "locations": "all",
+     "evidence": "provider page",
+     "scope": "Leaseweb Netherlands B.V., Deutschland GmbH, UK Ltd and other group entities, for services including \"Bare Metal Services\".",
+     "source": "https://kb.leaseweb.com/kb/compliance-security/security-certifications/"
+    },
+    "soc1": {
+     "standard": "SOC 1 / ISAE 3402 Type II",
+     "issuer": "EY",
+     "locations": "all",
+     "evidence": "provider page",
+     "scope": "Leaseweb Netherlands B.V., Deutschland GmbH and UK Ltd, services including \"Dedicated Server\"; calendar-year period.",
+     "source": "https://kb.leaseweb.com/kb/compliance-security/security-certifications/"
+    },
+    "pci-dss": {
+     "standard": "PCI DSS 4.0",
+     "locations": [
+      "Amsterdam NL",
+      "Frankfurt DE",
+      "London UK"
+     ],
+     "evidence": "provider page",
+     "scope": "Physical security only, at AMS-01, FRA-01 and LON-01 (Leaseweb Global B.V.).",
+     "source": "https://kb.leaseweb.com/kb/compliance-security/security-certifications/"
+    }
+   },
+   "certifications_note": "Leaseweb's SOC 2 Type II report covers only Leaseweb Canada's colocation, not European bare metal."
   },
   "cherryservers": {
    "name": "Cherry Servers",
@@ -1376,7 +1464,31 @@
      "verified": true,
      "note": "No EU stock when checked"
     }
-   ]
+   ],
+   "certifications_checked": "2026-10-24",
+   "certifications": {
+    "iso27001": {
+     "standard": "ISO/IEC 27001:2022",
+     "issuer": "UAB Sertika (LA)",
+     "reference": "26I.2758",
+     "valid_until": "2029-03-08",
+     "locations": [
+      "Siauliai LT"
+     ],
+     "evidence": "certificate",
+     "scope": "JSC Cherry Servers: \"Cloud computing, data center, and IT services\"; Cherry attaches it to its \u0160iauliai site only.",
+     "source": "https://www.cherryservers.com/v3/assets/site/certificates/cherry-servers-iso-27001.pdf"
+    },
+    "soc2": {
+     "standard": "SOC 2 Type II",
+     "locations": "all",
+     "evidence": "announcement",
+     "scope": "Announced 21 September 2026 for all its locations, including Amsterdam, Frankfurt, \u0160iauliai and Stockholm; auditor, period and services are not published.",
+     "access": "on request",
+     "source": "https://www.cherryservers.com/blog/cherry-servers-soc-2-type-ii-certification"
+    }
+   },
+   "certifications_note": "Cherry Servers' Amsterdam, Frankfurt and Stockholm pages show Equinix's facility certificates, which do not cover Cherry Servers' own service."
   },
   "latitude": {
    "name": "Latitude.sh",
@@ -1608,7 +1720,10 @@
      },
      "note": "Out of stock everywhere when checked"
     }
-   ]
+   ],
+   "certifications_checked": "2026-10-24",
+   "certifications": {},
+   "certifications_note": "Third parties report SOC 2 Type II and ISO 27001 on Latitude.sh's trust centre (trust.latitude.sh), but we could not read it and its own pages make no claim; ask for the reports."
   },
   "phoenixnap": {
    "name": "phoenixNAP",
@@ -1807,7 +1922,10 @@
       "per": "month"
      }
     }
-   ]
+   ],
+   "certifications_checked": "2026-10-24",
+   "certifications": {},
+   "certifications_note": "phoenixNAP's SOC 1, SOC 2 and PCI DSS claims are for its own Phoenix data centre; the Amsterdam site's certifications are the facility's, and its Bare Metal Cloud pages make no compliance claim."
   },
   "teraswitch": {
    "name": "Teraswitch",
@@ -2085,7 +2203,10 @@
      },
      "note": "base $785 + 1152 GB $800 + 2 x 3.84 TB NVMe $65 each"
     }
-   ]
+   ],
+   "certifications_checked": "2026-10-24",
+   "certifications": {},
+   "certifications_note": "No certification found on Teraswitch's own pages."
   },
   "vultr": {
    "name": "Vultr",
@@ -2301,7 +2422,10 @@
      },
      "note": "No deployable location when checked"
     }
-   ]
+   ],
+   "certifications_checked": "2026-10-24",
+   "certifications": {},
+   "certifications_note": "Vultr holds ISO 27001:2022, 27017 and 27018 for its \"Control Plane\" and a SOC 2 Type II report for \"the Vultr platform\" at \"select data center locations\"; neither names bare metal or its European sites. Reports are in the Vultr console for eligible customers."
   }
  },
  "object_storage_fallback": {
